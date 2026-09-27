@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.1",
+  "name": "Демо · две зоны с запретом между ними",
+  "survey_area": {"type":"Polygon","coordinates":[[[37.30,55.80],[37.302,55.80],[37.302,55.803],[37.30,55.803],[37.30,55.80]]]},
+  "additional_survey_areas": [{"type":"Polygon","coordinates":[[[37.306,55.80],[37.308,55.80],[37.308,55.803],[37.306,55.803],[37.306,55.80]]]}],
+  "allowed_airspace": {"type":"Polygon","coordinates":[[[37.294,55.796],[37.314,55.796],[37.314,55.810],[37.294,55.810],[37.294,55.796]]]},
+  "no_fly_zones": [{"type":"Polygon","coordinates":[[[37.303,55.7995],[37.304,55.7995],[37.304,55.8035],[37.303,55.8035],[37.303,55.7995]]]}],
+  "sites": [
+    {"id":"west","name":"Западная площадка","kind":"launch_landing","coordinates":[37.297,55.801]},
+    {"id":"east","name":"Восточная площадка","kind":"launch_landing","coordinates":[37.311,55.804]}
+  ],
+  "fleet": [
+    {"id":"Gemini-01","profile_id":"gemini","battery_percent":100,"payload":"rgb","start_site_id":"west"},
+    {"id":"801-01","profile_id":"geoscan_801","battery_percent":90,"payload":"rgb","start_site_id":"east"}
+  ],
+  "weather": {"wind_speed_mps":3,"wind_from_deg":270},
+  "survey_type":"rgb",
+  "objective":"min_completion_time"
+}

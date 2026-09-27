@@ -1,0 +1,23 @@
+.env
+.env.local
+.venv/
+node_modules/
+dist/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+*.db
+*.db-shm
+*.db-wal
+# Test coverage reports. Anchored: backend/src/bas/planning/coverage/ is source code.
+/frontend/coverage/
+/backend/htmlcov/
+.coverage
+test-results/
+.runtime/
+
+# Standalone Windows build output (scripts/build_windows.py)
+dist-windows/
+
+# Source archive for publication (scripts/package_source.py)
+dist-source/

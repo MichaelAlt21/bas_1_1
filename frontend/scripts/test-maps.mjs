@@ -1,0 +1,16 @@
+import { readFile } from 'node:fs/promises';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import ts from 'typescript';
+const source=await readFile(new URL('../src/features/map/mapConfig.ts',import.meta.url),'utf8');
+const {outputText}=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}});
+const {newMap,validateMap,mapUrl,escapeAttribution,serializeMaps,deserializeMaps}=await import('data:text/javascript;base64,'+Buffer.from(outputText).toString('base64'));
+const sample=()=>({...newMap(),id:'custom_test',name:'My map',apiKey:'test-key'});
+test('MapTiler key is URL encoded once',()=>assert.ok(mapUrl({...sample(),apiKey:'a&b=2'}).endsWith('?key=a%26b%3D2')));
+test('full link is not accepted as MapTiler key',()=>assert.throws(()=>validateMap({...sample(),apiKey:'https://example.com/?key=x'})));
+test('XYZ accepts only complete coordinate templates',()=>{assert.throws(()=>validateMap({...sample(),kind:'xyz',url:'https://example.com/{z}/{x}.png'}));assert.equal(mapUrl({...sample(),kind:'xyz',url:'https://example.com/{z}/{x}/{y}?key={key}',apiKey:'a&b'}),'https://example.com/{z}/{x}/{y}?key=a%26b');});
+test('rejects unsafe URL schemes and URL credentials',()=>{for(const url of ['javascript:alert(1)','file:///tiles.json','https://user:pass@example.com/tiles.json','http://example.com/tiles.json'])assert.throws(()=>validateMap({...sample(),kind:'tilejson',url}));});
+test('attribution is plain escaped text',()=>assert.equal(escapeAttribution('<img src=x onerror="oops"> &'),'&lt;img src=x onerror=&quot;oops&quot;&gt; &amp;'));
+test('session key is excluded from persisted settings',()=>{const stored=serializeMaps([sample(),{...sample(),id:'custom_saved',remember:true}]);assert.deepEqual(deserializeMaps(stored).map(m=>m.id),['custom_saved']);assert.equal(JSON.parse(stored).length,1);});
+test('corrupt or duplicate storage entries are ignored',()=>{assert.deepEqual(deserializeMaps('{bad'),[]);assert.deepEqual(deserializeMaps('{}'),[]);const saved={...sample(),remember:true};assert.equal(deserializeMaps(JSON.stringify([saved,saved,{...saved,id:'osm'}])).length,1);});
+test('invalid zoom ranges are rejected',()=>{assert.throws(()=>validateMap({...sample(),minZoom:20,maxZoom:10}));assert.throws(()=>validateMap({...sample(),maxZoom:Infinity}));});

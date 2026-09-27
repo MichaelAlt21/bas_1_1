@@ -1,0 +1,138 @@
+{
+  "schema_version": "0.1",
+  "name": "Демо — два коптера, учебная геометрия",
+  "survey_area": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          37.3,
+          55.8
+        ],
+        [
+          37.308,
+          55.8
+        ],
+        [
+          37.308,
+          55.805
+        ],
+        [
+          37.3,
+          55.805
+        ],
+        [
+          37.3,
+          55.8
+        ]
+      ]
+    ]
+  },
+  "allowed_airspace": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          37.294,
+          55.796
+        ],
+        [
+          37.314,
+          55.796
+        ],
+        [
+          37.314,
+          55.81
+        ],
+        [
+          37.294,
+          55.81
+        ],
+        [
+          37.294,
+          55.796
+        ]
+      ]
+    ]
+  },
+  "no_fly_zones": [
+    {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            37.3,
+            55.797
+          ],
+          [
+            37.303,
+            55.797
+          ],
+          [
+            37.303,
+            55.797999999999995
+          ],
+          [
+            37.3,
+            55.797999999999995
+          ],
+          [
+            37.3,
+            55.797
+          ]
+        ]
+      ]
+    }
+  ],
+  "sites": [
+    {
+      "id": "west",
+      "name": "Западная площадка",
+      "kind": "launch_landing",
+      "coordinates": [
+        37.297,
+        55.801
+      ]
+    },
+    {
+      "id": "east",
+      "name": "Восточная площадка",
+      "kind": "launch_landing",
+      "coordinates": [
+        37.311,
+        55.804
+      ]
+    },
+    {
+      "id": "south-reserve",
+      "name": "Южная резервная площадка",
+      "kind": "alternate",
+      "coordinates": [
+        37.296,
+        55.798
+      ]
+    }
+  ],
+  "fleet": [
+    {
+      "id": "Gemini-01",
+      "profile_id": "gemini",
+      "battery_percent": 100,
+      "payload": "rgb",
+      "start_site_id": "west"
+    },
+    {
+      "id": "801-01",
+      "profile_id": "geoscan_801",
+      "battery_percent": 90,
+      "payload": "rgb",
+      "start_site_id": "east"
+    }
+  ],
+  "weather": {
+    "wind_speed_mps": 3,
+    "wind_from_deg": 270
+  },
+  "survey_type": "rgb",
+  "objective": "min_completion_time"
+}

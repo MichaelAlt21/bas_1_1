@@ -1,0 +1,194 @@
+{
+  "schema_version": "0.1",
+  "name": "Демо · Эшелоны: 8 Gemini, общие коридоры",
+  "survey_area": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          37.3,
+          55.83
+        ],
+        [
+          37.312,
+          55.83
+        ],
+        [
+          37.312,
+          55.836
+        ],
+        [
+          37.3,
+          55.836
+        ],
+        [
+          37.3,
+          55.83
+        ]
+      ]
+    ]
+  },
+  "additional_survey_areas": [
+    {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            37.36,
+            55.79
+          ],
+          [
+            37.372,
+            55.79
+          ],
+          [
+            37.372,
+            55.796
+          ],
+          [
+            37.36,
+            55.796
+          ],
+          [
+            37.36,
+            55.79
+          ]
+        ]
+      ]
+    }
+  ],
+  "allowed_airspace": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          37.29,
+          55.78
+        ],
+        [
+          37.385,
+          55.78
+        ],
+        [
+          37.385,
+          55.84
+        ],
+        [
+          37.29,
+          55.84
+        ],
+        [
+          37.29,
+          55.78
+        ]
+      ]
+    ]
+  },
+  "no_fly_zones": [],
+  "sites": [
+    {
+      "id": "south-west",
+      "name": "Юго-западная площадка",
+      "kind": "launch_landing",
+      "coordinates": [
+        37.302,
+        55.792
+      ]
+    },
+    {
+      "id": "north-east",
+      "name": "Северо-восточная площадка",
+      "kind": "launch_landing",
+      "coordinates": [
+        37.37,
+        55.834
+      ]
+    }
+  ],
+  "fleet": [
+    {
+      "id": "Gemini-01",
+      "profile_id": "gemini",
+      "battery_percent": 100,
+      "payload": "rgb",
+      "start_site_id": "south-west",
+      "camera_id": "geoscan_pf1b_v1"
+    },
+    {
+      "id": "Gemini-02",
+      "profile_id": "gemini",
+      "battery_percent": 100,
+      "payload": "rgb",
+      "start_site_id": "north-east",
+      "camera_id": "geoscan_pf1b_v1"
+    },
+    {
+      "id": "Gemini-03",
+      "profile_id": "gemini",
+      "battery_percent": 100,
+      "payload": "rgb",
+      "start_site_id": "south-west",
+      "camera_id": "geoscan_pf1b_v1"
+    },
+    {
+      "id": "Gemini-04",
+      "profile_id": "gemini",
+      "battery_percent": 100,
+      "payload": "rgb",
+      "start_site_id": "north-east",
+      "camera_id": "geoscan_pf1b_v1"
+    },
+    {
+      "id": "Gemini-05",
+      "profile_id": "gemini",
+      "battery_percent": 100,
+      "payload": "rgb",
+      "start_site_id": "south-west",
+      "camera_id": "geoscan_pf1b_v1"
+    },
+    {
+      "id": "Gemini-06",
+      "profile_id": "gemini",
+      "battery_percent": 100,
+      "payload": "rgb",
+      "start_site_id": "north-east",
+      "camera_id": "geoscan_pf1b_v1"
+    },
+    {
+      "id": "Gemini-07",
+      "profile_id": "gemini",
+      "battery_percent": 100,
+      "payload": "rgb",
+      "start_site_id": "south-west",
+      "camera_id": "geoscan_pf1b_v1"
+    },
+    {
+      "id": "Gemini-08",
+      "profile_id": "gemini",
+      "battery_percent": 100,
+      "payload": "rgb",
+      "start_site_id": "north-east",
+      "camera_id": "geoscan_pf1b_v1"
+    }
+  ],
+  "weather": {
+    "wind_speed_mps": 3,
+    "wind_from_deg": 270
+  },
+  "survey_type": "rgb",
+  "objective": "min_completion_time",
+  "settings": {
+    "altitude_m": 100,
+    "airspeed_mps": 10,
+    "swath_width_m": 100,
+    "side_overlap_percent": 30,
+    "reserve_percent": 25,
+    "endurance_factor": 0.75,
+    "boundary_clearance_m": 20,
+    "coverage_mode": "camera",
+    "front_overlap_percent": 70,
+    "echelons": true,
+    "vertical_separation_m": 20,
+    "altitude_ceiling_m": 150
+  }
+}

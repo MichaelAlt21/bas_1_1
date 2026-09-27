@@ -1,0 +1,9 @@
+{
+  "tilejson": "3.0.0",
+  "name": "OpenStreetMap raster example",
+  "scheme": "xyz",
+  "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+  "minzoom": 0,
+  "maxzoom": 19,
+  "attribution": "© OpenStreetMap contributors"
+}

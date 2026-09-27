@@ -1,0 +1,20 @@
+{
+  "schema_version": "0.1",
+  "name": "Демо · Геоскан 201 и Gemini с камерами",
+  "survey_area": {"type":"Polygon","coordinates":[[[37.300,55.800],[37.312,55.800],[37.312,55.809],[37.300,55.809],[37.300,55.800]]]},
+  "allowed_airspace": {"type":"Polygon","coordinates":[[[37.260,55.775],[37.350,55.775],[37.350,55.835],[37.260,55.835],[37.260,55.775]]]},
+  "no_fly_zones": [],
+  "sites": [
+    {"id":"plane-base","name":"Площадка 201","kind":"launch_landing","coordinates":[37.288,55.795]},
+    {"id":"copter-base","name":"Площадка Gemini","kind":"launch_landing","coordinates":[37.314,55.804]},
+    {"id":"north-reserve","name":"Северная резервная площадка","kind":"alternate","coordinates":[37.300,55.830]}
+  ],
+  "fleet": [
+    {"id":"201-01","profile_id":"geoscan_201","battery_percent":100,"payload":"rgb","start_site_id":"plane-base","airspeed_mps":22,"camera_id":"sony_rx1rm2_v1"},
+    {"id":"Gemini-01","profile_id":"gemini","battery_percent":100,"payload":"rgb","start_site_id":"copter-base","airspeed_mps":10,"camera_id":"geoscan_pf1b_v1"}
+  ],
+  "weather": {"wind_speed_mps":3,"wind_from_deg":270},
+  "survey_type":"rgb",
+  "objective":"min_completion_time",
+  "settings":{"altitude_m":100,"airspeed_mps":10,"swath_width_m":100,"side_overlap_percent":30,"reserve_percent":25,"endurance_factor":0.75,"boundary_clearance_m":20,"coverage_mode":"camera","front_overlap_percent":70,"fixed_wing":{"airspeed_mps":22,"turn_radius_m":150,"climb_rate_mps":2.5,"parachute_sink_mps":5}}
+}

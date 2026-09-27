@@ -1,0 +1,6 @@
+{
+  "name": "bas-planner-web", "version": "1.1.0", "private": true, "type": "module",
+  "scripts": {"dev": "vite --host 0.0.0.0", "build": "tsc --noEmit && vite build", "test": "node --test scripts/test-playback.mjs scripts/test-maps.mjs scripts/test-fleet.mjs scripts/test-heading-areas.mjs scripts/test-history.mjs scripts/test-icons.mjs scripts/test-schedule.mjs scripts/test-theme.mjs scripts/test-levels.mjs", "preview": "vite preview --host 0.0.0.0", "types:api": "openapi-typescript http://localhost:8000/openapi.json -o src/shared/api.generated.d.ts"},
+  "dependencies": {"ol": "^10.6.0", "react": "^19.0.0", "react-dom": "^19.0.0"},
+  "devDependencies": {"@types/geojson": "^7946.0.16", "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0", "typescript": "^5.8.0", "vite": "^6.4.0", "openapi-typescript": "^7.6.0"}
+}

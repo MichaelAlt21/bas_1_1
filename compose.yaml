@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgis/postgis:16-3.5
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bas}
+      POSTGRES_USER: ${POSTGRES_USER:-bas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_only}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  db-init:
+    build: ./backend
+    command: ["python", "-m", "bas.configure_database", "prepare"]
+    environment:
+      BAS_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-bas}:${POSTGRES_PASSWORD:-local_dev_only}@db:5432/${POSTGRES_DB:-bas}
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    build: ./backend
+    environment:
+      BAS_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-bas}:${POSTGRES_PASSWORD:-local_dev_only}@db:5432/${POSTGRES_DB:-bas}
+    ports: ['127.0.0.1:8000:8000']
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+  web:
+    build: ./frontend
+    environment:
+      API_PROXY_TARGET: http://api:8000
+      VITE_MAPTILER_KEY: ${VITE_MAPTILER_KEY:-}
+      VITE_MAPTILER_SATELLITE_ID: ${VITE_MAPTILER_SATELLITE_ID:-hybrid-v4}
+    ports: ['127.0.0.1:5173:5173']
+    depends_on: [api]
+volumes:
+  database:

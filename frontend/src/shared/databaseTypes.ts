@@ -1,0 +1,3 @@
+export interface DatabaseConfig {host:string;port:number;database:string;username:string;password_env:string;sslmode:'verify-full'|'require';sslrootcert:string}
+export interface DatabaseStatus {active:{driver:string;host:string|null;port:number|null;database:string|null;username:string|null;schema:string|null};saved:DatabaseConfig|null;overridden_by_env:boolean;password_environment_ready:boolean}
+export interface DatabaseReport {connected?:boolean;schema_exists?:boolean;tables_ready?:boolean;missing_tables?:string[];incompatible_tables?:string[];writable?:boolean;saved?:boolean;requires_restart?:boolean;message?:string}

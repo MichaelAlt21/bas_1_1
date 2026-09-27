@@ -1,0 +1,18 @@
+{
+  "schema_version": "0.1",
+  "name": "Демо · мультиспектральная съемка Gemini/Pollux",
+  "survey_area": {"type":"Polygon","coordinates":[[[37.300,55.800],[37.308,55.800],[37.308,55.805],[37.300,55.805],[37.300,55.800]]]},
+  "allowed_airspace": {"type":"Polygon","coordinates":[[[37.294,55.796],[37.314,55.796],[37.314,55.810],[37.294,55.810],[37.294,55.796]]]},
+  "no_fly_zones": [],
+  "sites": [
+    {"id":"west","name":"Западная площадка","kind":"launch_landing","coordinates":[37.297,55.801]},
+    {"id":"south-reserve","name":"Южная резервная площадка","kind":"alternate","coordinates":[37.296,55.798]}
+  ],
+  "fleet": [
+    {"id":"Gemini-01","profile_id":"gemini","battery_percent":100,"payload":"multispectral","start_site_id":"west","camera_id":"geoscan_pollux_v1"}
+  ],
+  "weather": {"wind_speed_mps":3,"wind_from_deg":270},
+  "survey_type": "multispectral",
+  "objective": "min_completion_time",
+  "settings": {"altitude_m":100,"airspeed_mps":10,"swath_width_m":100,"side_overlap_percent":30,"reserve_percent":25,"endurance_factor":0.75,"boundary_clearance_m":20,"coverage_mode":"camera","front_overlap_percent":70}
+}
