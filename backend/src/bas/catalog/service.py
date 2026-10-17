@@ -16,12 +16,13 @@ def builtin_profiles():
         charge_time_min=p.get('charge', {}).get('time_min'), charge_source=p.get('charge', {}).get('source', '')) for p in raw]
 
 
-def resolve_profiles(scenario, catalog=None):
+def resolve_profiles(scenario, catalog=None, ignore_missing=False):
     available = {p.id:p for p in (builtin_profiles() if catalog is None else catalog)}
     available.update({p.id:p for p in scenario.aircraft_profiles})
     result = {}
     for aircraft in scenario.fleet:
         if aircraft.profile_id not in available:
-            reject('PROFILE_UNKNOWN', f'Профиль {aircraft.profile_id} отсутствует в каталоге и снимке сценария.')
+            if ignore_missing: continue
+            reject('PROFILE_UNKNOWN', f'Профиль {aircraft.profile_id} отсутствует в каталоге и снимке сценария.', aircraft=[aircraft.id])
         result[aircraft.profile_id] = available[aircraft.profile_id]
     return result

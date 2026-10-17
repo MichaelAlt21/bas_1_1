@@ -19,3 +19,16 @@ export function demoDraft():Draft {return {...emptyDraft(),name:'Демо · RGB
  no_fly_zones:[rect(37.300,55.797,.003,.001)],
  sites:[{id:'west',name:'Западная площадка',kind:'launch_landing',coordinates:[37.297,55.801]},{id:'east',name:'Восточная площадка',kind:'launch_landing',coordinates:[37.311,55.804]},{id:'alternate',name:'Запасная площадка',kind:'alternate',coordinates:[37.309,55.808]}],
  fleet:[{id:'Gemini-01',profile_id:'gemini',battery_percent:100,payload:'rgb',start_site_id:'west'},{id:'801-01',profile_id:'geoscan_801',battery_percent:90,payload:'rgb',start_site_id:'east'}]};}
+/** Same as contracts/scenario.multisurvey.example.json: orthophoto and vegetation of a field, thermal survey of a plant. */
+export function multiSurveyDemo():Draft {return {...emptyDraft(),name:'Демо · Несколько видов съемки: ортофото, вегетация, тепловизор',
+ survey_area:rect(37.300,55.800,.014,.008),additional_survey_areas:[rect(37.322,55.806,.010,.006)],area_ids:['field','plant'],allowed_airspace:rect(37.285,55.790,.060,.035),
+ sites:[{id:'base',name:'База',kind:'launch_landing',coordinates:[37.296,55.797]},{id:'east',name:'Восточная',kind:'launch_landing',coordinates:[37.336,55.804]}],
+ fleet:[{id:'Gemini-01',profile_id:'gemini',battery_percent:100,payload:'rgb',start_site_id:'base',sensors:['geoscan_pf1b_v1','geoscan_pollux_v1']},
+  {id:'Gemini-02',profile_id:'gemini',battery_percent:100,payload:'rgb',start_site_id:'base',sensors:['geoscan_pf1b_v1']},
+  {id:'801-01',profile_id:'geoscan_801',battery_percent:100,payload:'thermal',start_site_id:'east',sensors:['geoscan_801_thermal_v1']},
+  {id:'Gemini-03',profile_id:'gemini',battery_percent:100,payload:'multispectral',start_site_id:'east',sensors:['geoscan_pollux_v1']}],
+ objective:'min_cost',
+ requirements:[{id:'field-rgb',name:'Поле · ортофото',area_ids:['field'],survey_type:'rgb',max_gsd_cm:2.5,side_overlap_percent:30,front_overlap_percent:70},
+  {id:'field-ms',name:'Поле · вегетация',area_ids:['field'],survey_type:'multispectral',side_overlap_percent:30,front_overlap_percent:70},
+  {id:'plant-ir',name:'Завод · тепловизор',area_ids:['plant'],survey_type:'thermal',swath_width_m:60,side_overlap_percent:20,front_overlap_percent:70}],
+ settings:{...DEFAULT_SETTINGS,sorties_per_aircraft:3,echelons:false}};}

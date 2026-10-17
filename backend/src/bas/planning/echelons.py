@@ -41,12 +41,13 @@ def candidate_levels(settings, report):
     return [base + k * step for k in range(count)]
 
 
-def allowed_levels(aircraft, profile, settings, levels):
+def allowed_levels(aircraft, profile, settings, levels, legacy=True):
     allowed = []
     for level in levels:
         if profile.airframe == 'fixed_wing' and level < 100:
             continue
-        if settings.coverage_mode == 'camera':
+        # With survey requirements the GSD of every sensor is checked when the levels are applied.
+        if legacy and settings.coverage_mode == 'camera':
             try:
                 camera_geometry(aircraft, profile, settings, level)
             except PlanningError:
@@ -115,7 +116,7 @@ def assign_echelons(scenario, profiles, run, altitudes, requested, separation):
             continue
         # Each metre up adds half a second of climb and half a second of descent to every sortie.
         slack = min((m['budget_s'] - m['flight_time_s'] for m in run['missions'] if m['aircraft_id'] == a.id), default=math.inf)
-        options[a.id] = [h for h in allowed_levels(a, profiles[a.profile_id], settings, levels) if h - altitudes[a.id] <= slack + 1e-9] or [altitudes[a.id]]
+        options[a.id] = [h for h in allowed_levels(a, profiles[a.profile_id], settings, levels, scenario.requirements is None) if h - altitudes[a.id] <= slack + 1e-9] or [altitudes[a.id]]
     assigned = assign(order, fixed, options, shared, settings.vertical_separation_m)
     pairs = sorted(({'aircraft': [a, b], 'shared_m': round(metres, 1)} for (a, b), metres in shared.items() if metres >= 1),
                    key=lambda item: -item['shared_m'])

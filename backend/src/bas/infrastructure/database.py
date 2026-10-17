@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import JSON, Column, MetaData, String, Table, create_engine, select, func
+from sqlalchemy import JSON, Column, Integer, MetaData, String, Table, create_engine, select, func
 from sqlalchemy.engine import make_url
 from bas.infrastructure.db_settings import read_config, profile_engine, SCHEMA
 
@@ -19,6 +19,22 @@ plans = Table('plans', metadata, Column('id', String(36), primary_key=True),
               Column('scenario_id', String(36), nullable=False), Column('payload', JSON, nullable=False))
 aircraft_profiles = Table('aircraft_profiles', metadata, Column('id', String(100), primary_key=True),
                          Column('payload', JSON, nullable=False))
+# Every saved version of a user sensor profile; a scenario keeps the version it was planned with.
+sensor_profiles = Table('sensor_profiles', metadata, Column('id', String(100), primary_key=True),
+                        Column('version', Integer, primary_key=True), Column('payload', JSON, nullable=False))
+
+
+def list_sensor_versions(engine):
+    from bas.domain.models import SensorProfile
+    with engine.connect() as connection:
+        rows = connection.execute(select(sensor_profiles.c.payload).order_by(sensor_profiles.c.id, sensor_profiles.c.version)).all()
+    return [SensorProfile.model_validate(row[0]) for row in rows]
+
+
+def save_sensor(engine, profile):
+    with engine.begin() as connection:
+        connection.execute(sensor_profiles.insert().values(id=profile.id, version=profile.version, payload=profile.model_dump(mode='json')))
+    return profile
 
 
 def list_profiles(engine):

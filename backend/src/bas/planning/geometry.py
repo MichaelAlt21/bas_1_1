@@ -25,13 +25,17 @@ MIN_PART_M2 = 500
 
 
 class PlanningError(ValueError):
-    def __init__(self, code, message):
+    """A plan is impossible or was not found. `details` name the subjects and values behind it
+    (aircraft, sites, requirements, actual, required…); `diagnostics` are ready structured ones."""
+    def __init__(self, code, message, diagnostics=None, **details):
         self.code = code
+        self.details = details
+        self.diagnostics = diagnostics or []
         super().__init__(message)
 
 
-def reject(code, message):
-    raise PlanningError(code, message)
+def reject(code, message, **details):
+    raise PlanningError(code, message, **details)
 
 
 def _grown(geometry, clearance):

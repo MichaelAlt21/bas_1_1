@@ -22,7 +22,8 @@ def _variant(scenario, count, objective='min_completion_time'):
 
 def _row(scenario, count, limit_s, objective='min_completion_time'):
     try:
-        result = plan(_variant(scenario, count, objective))
+        # Many plans for one table: without the local search, so a row is an upper estimate of the plan the button computes.
+        result = plan(_variant(scenario, count, objective), search=False)
     except PlanningError as error:
         return dict(aircraft=count, feasible=False, code=error.code, message=str(error))
     m = result['metrics']

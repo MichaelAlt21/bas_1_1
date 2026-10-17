@@ -29,7 +29,10 @@ import { deserializeMaps, serializeMaps, MAP_STORAGE_KEY, type UserMap } from '.
 import { currentSorties, sampleMission } from '../plans/playback';
 import { missionHeading } from '../plans/heading';
 import { aircraftIcon } from './aircraftIcons';
-import { surveyAreas, withSurveyAreas, MAX_SURVEY_AREAS } from '../scenarios/areas';
+import { surveyAreas, MAX_SURVEY_AREAS } from '../scenarios/areas';
+import { areaIds, isMulti, replaceAreas, requirementsOf, TYPE_NAMES } from '../scenarios/requirements';
+
+export interface MapFocus {id:string|null;revision:number;kind?:'site'|'area'|'zone'|'obstacle'}
 import { isEditingTarget } from '../scenarios/history';
 
 type Tool='edit'|'survey'|'allowed'|'forbidden'|'launch_landing'|'alternate';
@@ -37,7 +40,7 @@ const colors=MAP_COLORS;
 const names:Record<Tool,string>={edit:'Правка',survey:'Зона съемки',allowed:'Разрешенная зона',forbidden:'Запретная зона',launch_landing:'Старт / посадка',alternate:'Запасная площадка'};
 const format=new GeoJSON();
 const projection={featureProjection:'EPSG:3857',dataProjection:'EPSG:4326'};
-interface Props {draft:Draft;plan:Plan|null;playhead:number;onChange:(draft:Draft)=>void;fitVersion:number;focusSite:{id:string;revision:number}|null;disabled:boolean;shortcutsDisabled:boolean;canUndo:boolean;canRedo:boolean;onUndo:()=>void;onRedo:()=>void;
+interface Props {draft:Draft;plan:Plan|null;playhead:number;onChange:(draft:Draft)=>void;fitVersion:number;focusSite:MapFocus|null;disabled:boolean;shortcutsDisabled:boolean;canUndo:boolean;canRedo:boolean;onUndo:()=>void;onRedo:()=>void;
  task:Polygon[]|null;packages:WorkPackage[]|null;selectedPackage:string|null;onPackage:(id:string)=>void;theme:ThemeMode}
 
 export default function MapWorkspace({draft,plan,playhead,onChange,fitVersion,focusSite,disabled,shortcutsDisabled,canUndo,canRedo,onUndo,onRedo,task,packages,selectedPackage,onPackage,theme}:Props){
@@ -122,7 +125,7 @@ export default function MapWorkspace({draft,plan,playhead,onChange,fitVersion,fo
     else if(kind==='allowed')next.allowed_airspace=geometry as Polygon;
     else if(kind==='forbidden')next.no_fly_zones[f.get('index')]=geometry as Polygon;
     else {const site=next.sites.find(s=>s.id===f.get('siteId'));if(site)site.coordinates=(geometry as Point).coordinates as Position;}
-   });change(withSurveyAreas(next,areas));
+   });change(replaceAreas(next,areas));
   });
   map.on('singleclick',event=>{
    if(context.current.tool!=='edit')return;
@@ -139,7 +142,10 @@ export default function MapWorkspace({draft,plan,playhead,onChange,fitVersion,fo
   state.source.clear();
   const add=(geometry:Polygon|Point,props:Record<string,unknown>)=>{const feature=new Feature(format.readGeometry(geometry,projection));feature.setProperties(props);state.source.addFeature(feature);};
   if(draft.allowed_airspace)add(draft.allowed_airspace,{kind:'allowed'});
-  surveyAreas(draft).forEach((area,index)=>add(area,{kind:'survey',index,label:`Зона ${index+1}`}));
+  // With requirements a zone shows its id and survey types: «field · RGB, мультиспектральная».
+  const ids=areaIds(draft),multi=isMulti(draft);
+  surveyAreas(draft).forEach((area,index)=>{const types=[...new Set(requirementsOf(draft,ids[index]).map(r=>TYPE_NAMES[r.survey_type]))];
+   add(area,{kind:'survey',index,areaId:ids[index],label:multi?`${ids[index]} · ${types.join(', ')||'нет требований'}`:`Зона ${index+1}`});});
   draft.no_fly_zones.forEach((zone,index)=>add(zone,{kind:'forbidden',index}));
   // With charging on, every site shows its chargers: reserve sites with chargers become charging stops.
   const charging=draft.settings.recharge_mode==='charge'&&(draft.settings.sorties_per_aircraft??1)>1;
@@ -156,12 +162,12 @@ export default function MapWorkspace({draft,plan,playhead,onChange,fitVersion,fo
   const zoneFeatures=(draft.restriction_zones||[]).map((zone:RestrictionZone)=>{
    const feature=new Feature(format.readGeometry(zone.geometry,projection));
    const state=!decided?'unknown':applied.has(zone.id)?'applied':'ignored';
-   feature.setProperties({category:zone.category,state,info:zoneInfo(zone,decided)});return feature;
+   feature.setProperties({category:zone.category,state,info:zoneInfo(zone,decided),zoneId:zone.id});return feature;
   });
   state.zones.clear();state.zones.addFeatures(zoneFeatures);
   const obstacleFeatures=(draft.obstacles||[]).map(obstacle=>{
    const feature=new Feature(format.readGeometry(obstacle.geometry,projection));
-   feature.setProperties({state:!decided?'unknown':hit.has(obstacle.id)?'applied':'ignored',info:obstacleInfo(obstacle,decided)});return feature;
+   feature.setProperties({state:!decided?'unknown':hit.has(obstacle.id)?'applied':'ignored',info:obstacleInfo(obstacle,decided),obstacleId:obstacle.id});return feature;
   });
   state.obstacles.clear();state.obstacles.addFeatures(obstacleFeatures);
   setInfo(null);
@@ -215,7 +221,7 @@ export default function MapWorkspace({draft,plan,playhead,onChange,fitVersion,fo
    clearSketch();
    const {draft:current,onChange:change}=context.current;
    const geometry=format.writeGeometryObject(event.feature.getGeometry()!,projection);
-   if(tool==='survey'&&surveyAreas(current).length<MAX_SURVEY_AREAS)change(withSurveyAreas(current,[...surveyAreas(current),geometry as Polygon]));
+   if(tool==='survey'&&surveyAreas(current).length<MAX_SURVEY_AREAS)change(replaceAreas(current,[...surveyAreas(current),geometry as Polygon]));
    if(tool==='allowed')change({...current,allowed_airspace:geometry as Polygon});
    if(tool==='forbidden')change({...current,no_fly_zones:[...current.no_fly_zones,geometry as Polygon]});
    if(tool==='launch_landing'||tool==='alternate'){
@@ -276,8 +282,19 @@ export default function MapWorkspace({draft,plan,playhead,onChange,fitVersion,fo
  const fit=()=>{const state=handle.current;if(!state)return;const source=[state.routes,state.source,state.task,state.zones].find(s=>s.getFeatures().length);if(source){state.map.updateSize();state.map.getView().cancelAnimations();state.map.getView().fit(source.getExtent()!,{padding:[60,40,70,40],maxZoom:16,duration:300});}};
  useEffect(()=>{fit();},[fitVersion,Boolean(plan)]);
  useEffect(()=>{
-  const site=context.current.draft.sites.find(s=>s.id===focusSite?.id);
-  if(site&&handle.current){handle.current.map.updateSize();handle.current.map.getView().animate({center:fromLonLat(site.coordinates),zoom:16,duration:300});target.current?.scrollIntoView({block:'nearest',behavior:'smooth'});}
+  const state=handle.current;if(!state||!focusSite)return;
+  const kind=focusSite.kind||'site';
+  if(kind==='site'){
+   const site=context.current.draft.sites.find(s=>s.id===focusSite.id);
+   if(site){state.map.updateSize();state.map.getView().animate({center:fromLonLat(site.coordinates),zoom:16,duration:300});target.current?.scrollIntoView({block:'nearest',behavior:'smooth'});}
+   return;
+  }
+  // Zones and obstacles: fit the object; without an id, all objects of that kind.
+  const [source,key]=kind==='area'?[state.source,'areaId']:kind==='zone'?[state.zones,'zoneId']:[state.obstacles,'obstacleId'];
+  const found=source.getFeatures().filter(f=>(kind!=='area'||f.get('kind')==='survey')&&(focusSite.id===null||f.get(key)===focusSite.id));
+  if(!found.length)return;
+  const extent=found.map(f=>f.getGeometry()!.getExtent()).reduce((a,b)=>[Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.max(a[2],b[2]),Math.max(a[3],b[3])]);
+  state.map.updateSize();state.map.getView().fit(extent,{padding:[80,60,80,60],maxZoom:17,duration:300});target.current?.scrollIntoView({block:'nearest',behavior:'smooth'});
  },[focusSite]);
  const basemapClass=['osm','satellite','none'].includes(basemap)?basemap:'custom';
  return <section className={`workspace basemap-${basemapClass}${plan?' has-plan':''}`} aria-label="Карта планирования">

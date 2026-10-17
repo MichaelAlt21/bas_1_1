@@ -13,8 +13,8 @@ export function toLocalInput(iso:string|null|undefined){
 }
 const time=(iso:string|null)=>iso?new Date(iso).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'—';
 
-function Numeric({label,value,min,max,step=1,empty,onChange}:{label:string;value:number|null|undefined;min:number;max:number;step?:number;empty?:string;onChange:(value:number|null)=>void}){
- return <label>{label}<input type="number" min={min} max={max} step={step} placeholder={empty} value={value??''}
+function Numeric({label,value,min,max,step=1,empty,nav,onChange}:{label:string;value:number|null|undefined;min:number;max:number;step?:number;empty?:string;nav?:string;onChange:(value:number|null)=>void}){
+ return <label data-nav={nav}>{label}<input type="number" min={min} max={max} step={step} placeholder={empty} value={value??''}
   onChange={e=>onChange(e.target.value===''?(empty?null:min):Math.max(min,Math.min(max,e.target.valueAsNumber)))}/></label>;
 }
 
@@ -33,7 +33,7 @@ export function AirspaceFields(props:Props){
    <Numeric label="Рельеф, макс. м" value={s.terrain_max_m??150} min={-450} max={6000} onChange={v=>set({terrain_max_m:Math.max(v??150,s.terrain_min_m??150)})}/></div>
   <div className="row"><Numeric label="Вертикальный запас, м" value={s.vertical_buffer_m??50} min={0} max={500} onChange={v=>set({vertical_buffer_m:v??50})}/>
    <Numeric label="Отступ от препятствий, м" value={s.obstacle_clearance_m??50} min={5} max={1000} onChange={v=>set({obstacle_clearance_m:v??50})}/></div>
-  <label>Участки под ограничениями<select value={s.blocked_area_policy??'reject'} onChange={e=>set({blocked_area_policy:e.target.value as SurveySettings['blocked_area_policy']})}>
+  <label data-nav="settings.blocked_area_policy">Участки под ограничениями<select value={s.blocked_area_policy??'reject'} onChange={e=>set({blocked_area_policy:e.target.value as SurveySettings['blocked_area_policy']})}>
    <option value="reject">Запрещают расчет — нужно изменить район</option><option value="exclude">Исключаются из съемки с отчетом о площади</option></select></label>
   <p className="hint">Границы зон по уровню моря (AMSL) и в эшелонах FL пересчитываются по диапазону рельефа в худшую сторону. Зона учитывается, если достает до самой высокой высоты полета плюс запас, препятствие — до самой низкой.</p>
  </>;
@@ -59,8 +59,8 @@ export function DeadlineFields({draft,onChange,areas}:Props&{areas:Polygon[]}){
  },[lat?.toFixed(3),lon?.toFixed(3),day]);
  return <>
   <label>Начало работ<input type="datetime-local" value={toLocalInput(s.operation_start)} onChange={e=>set({operation_start:e.target.value?new Date(e.target.value).toISOString():null,until_sunset:e.target.value?s.until_sunset:false})}/></label>
-  <div className="row"><Numeric label="Срок, мин" value={s.time_limit_min} min={1} max={10080} empty="не задан" onChange={v=>set({time_limit_min:v})}/>
-   <Numeric label="Не более бортов" value={s.max_aircraft} min={1} max={20} empty="все" onChange={v=>set({max_aircraft:v})}/></div>
+  <div className="row"><Numeric nav="settings.time_limit_min" label="Срок, мин" value={s.time_limit_min} min={1} max={10080} empty="не задан" onChange={v=>set({time_limit_min:v})}/>
+   <Numeric nav="settings.max_aircraft" label="Не более бортов" value={s.max_aircraft} min={1} max={20} empty="все" onChange={v=>set({max_aircraft:v})}/></div>
   <label className="check-row"><input type="checkbox" disabled={!s.operation_start} checked={Boolean(s.until_sunset)} onChange={e=>set({until_sunset:e.target.checked})}/> Закончить до заката{!s.operation_start?' (задайте начало работ)':''}</label>
   {sun&&<p className="hint">{sun.polar?`Полярный ${sun.polar==='day'?'день':'ночь'}.`:`Восход ${time(sun.sunrise)}, закат ${time(sun.sunset)}, конец гражданских сумерек ${time(sun.civil_dusk)} (время браузера).`}
    {s.until_sunset&&sun.sunset&&s.operation_start?` До заката ${Math.max(0,(Date.parse(sun.sunset)-Date.parse(s.operation_start))/60000).toFixed(0)} мин.`:''}</p>}
@@ -80,8 +80,10 @@ export function SortieFields({draft,onChange,catalog}:Props&{catalog:AircraftPro
  const used=catalog.filter(p=>draft.fleet.some(a=>a.profile_id===p.id));
  const chargers=draft.sites.reduce((sum,site)=>sum+(site.chargers??(site.kind==='launch_landing'?2:0)),0);
  return <>
-  <Numeric label="Вылетов на борт" value={count} min={1} max={20} onChange={v=>set({sorties_per_aircraft:v??1})}/>
-  <div className="segmented" role="radiogroup" aria-label="Между вылетами">
+  <Numeric nav="settings.sorties_per_aircraft" label="Вылетов на борт" value={count} min={1} max={20} onChange={v=>set({sorties_per_aircraft:v??1})}/>
+  {Array.isArray(draft.requirements)&&<><Numeric nav="settings.payload_change_min" label="Смена нагрузки между вылетами, мин" value={s.payload_change_min??15} min={0} max={240} onChange={v=>set({payload_change_min:v??15})}/>
+   <p className="hint">Время снять один сенсор и установить другой, когда следующий вылет борта — с другим сенсором. 15 мин — допущение демонстрации, а не норматив.</p></>}
+  <div className="segmented" role="radiogroup" aria-label="Между вылетами" data-nav="settings.recharge_mode">
    <button role="radio" aria-checked={mode==='swap'} className={mode==='swap'?'active':''} onClick={()=>set({recharge_mode:'swap'})}>Замена АКБ</button>
    <button role="radio" aria-checked={mode==='charge'} className={mode==='charge'?'active':''} onClick={()=>set({recharge_mode:'charge'})}>Зарядка на площадке</button>
   </div>

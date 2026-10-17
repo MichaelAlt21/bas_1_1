@@ -179,14 +179,18 @@ def test_echelons_shorten_a_plan_that_waits_at_crossings():
 
 def test_manual_levels_are_flown_and_separated_by_height():
     data = crossing()
-    data['fleet'][0]['altitude_m'] = 140
+    # Every aircraft of pad A flies higher: the plan need not use a particular one.
+    raised = {a['id'] for a in data['fleet'] if a['start_site_id'] == 'A'}
+    for a in data['fleet']:
+        if a['id'] in raised: a['altitude_m'] = 140
     data['settings'].update(coverage_mode='camera')
     for a in data['fleet']:
         a['camera_id'] = 'geoscan_pf1b_v1'
     result = plan(Scenario.model_validate(data))
     assert result['separation']['vertical_m'] == 20
-    high = [m for m in result['missions'] if m['aircraft_id'] == 'G01']
+    high = [m for m in result['missions'] if m['aircraft_id'] in raised]
     assert high and all(m['altitude_m'] == 140 for m in high)
+    assert all(m['altitude_m'] == 100 for m in result['missions'] if m['aircraft_id'] not in raised)
     assert high[0]['survey']['gsd_cm'] == pytest.approx(1.9583333 * 1.4, rel=1e-4)
     assert result['airspace']['flight_altitude_max_m'] == 140
     assert_valid(data, result, 20.)

@@ -1,5 +1,5 @@
 import math
-from datetime import time
+from datetime import date, time
 from typing import Annotated, Literal, Union
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -145,6 +145,131 @@ class Obstacle(Model):
     height_reference: Literal["AGL", "AMSL"] = "AGL"
 
 
+SurveyType = Literal["rgb", "multispectral", "thermal", "lidar", "geophysical"]
+ID_PATTERN = r'^[a-zA-Z0-9_.:-]+$'
+
+
+class ParameterSource(Model):
+    """Where one parameter of a sensor profile comes from."""
+    status: Literal['confirmed', 'computed', 'assumed', 'unknown']
+    source: str = Field(default='', max_length=500)
+    formula: str = Field(default='', max_length=300)
+
+
+class SensorProfileInput(Model):
+    """A camera or other survey sensor.
+
+    `geometry` says how the swath follows from the parameters: `frame` — a nadir frame camera
+    (swath = H · sensor width / focal length, GSD from the pixel size); `scanner` — a line scanner
+    (swath = 2 H tan(FOV/2)); `line` — a point sensor flown on lines (magnetometer): the line spacing
+    is set by the survey requirement; `unknown` — geometry not confirmed: a requirement must give
+    the swath width by hand. Compatibility lists aircraft profiles the sensor is confirmed for.
+    """
+    name: str = Field(min_length=1, max_length=120)
+    sensor_type: SurveyType
+    geometry: Literal['frame', 'scanner', 'line', 'unknown']
+    sensor_width_mm: float | None = Field(default=None, gt=0, le=100)
+    sensor_height_mm: float | None = Field(default=None, gt=0, le=100)
+    focal_length_mm: float | None = Field(default=None, gt=0, le=1000)
+    image_width_px: int | None = Field(default=None, gt=0, le=100000)
+    image_height_px: int | None = Field(default=None, gt=0, le=100000)
+    field_of_view_deg: float | None = Field(default=None, gt=0, lt=180)
+    compatible_profiles: list[str] = Field(default_factory=list, max_length=50)
+    # Demonstration profiles stand in for equipment that is not confirmed for these aircraft.
+    demonstration: bool = False
+    parameters: dict[str, ParameterSource] = Field(default_factory=dict)
+    source: str = Field(min_length=1, max_length=1000)
+    source_url: str = Field(default='', max_length=500)
+    checked_at: date | None = None
+
+    @model_validator(mode='after')
+    def geometry_complete(self):
+        if self.geometry == 'frame':
+            missing = [name for name in ('sensor_width_mm', 'sensor_height_mm', 'focal_length_mm', 'image_width_px', 'image_height_px')
+                       if getattr(self, name) is None]
+            if missing:
+                raise ValueError('Для кадровой камеры нужны размеры матрицы (мм), фокусное расстояние (мм) и разрешение (пикс): не заданы ' + ', '.join(missing))
+        if self.geometry == 'scanner' and self.field_of_view_deg is None:
+            raise ValueError('Для сканера нужен угол обзора field_of_view_deg (градусы)')
+        return self
+
+
+class SensorProfile(SensorProfileInput):
+    id: str = Field(min_length=1, max_length=100, pattern=ID_PATTERN)
+    # A changed profile is a new version; a saved scenario keeps the version it was planned with.
+    version: int = Field(default=1, ge=1, le=100000)
+    origin: Literal['builtin', 'user'] = 'user'
+
+
+class SurveyRequirement(Model):
+    """One obligation of the operation: zones + survey type + quality parameters.
+
+    The swath comes from the sensor geometry, or from `swath_width_m` when it is given (for
+    sensors whose geometry is not confirmed). `altitude_m` fixes the survey height for this
+    requirement; without it the aircraft flies at its own level (survey altitude, echelon or
+    its own height). `line_spacing_m` is the line spacing of `line` sensors (magnetometry).
+    """
+    id: str = Field(min_length=1, max_length=100, pattern=ID_PATTERN)
+    name: str = Field(default='', max_length=120)
+    area_ids: list[str] = Field(min_length=1, max_length=200)
+    survey_type: SurveyType
+    side_overlap_percent: float = Field(default=30, ge=0, le=80)
+    front_overlap_percent: float = Field(default=70, ge=0, le=90)
+    max_gsd_cm: float | None = Field(default=None, ge=0.1, le=100)
+    altitude_m: float | None = Field(default=None, ge=20, le=300)
+    swath_width_m: float | None = Field(default=None, ge=10, le=500)
+    line_spacing_m: float | None = Field(default=None, ge=5, le=1000)
+    max_speed_mps: float | None = Field(default=None, ge=2, le=100)
+
+
+class ProfileCost(Model):
+    """Coefficients for every aircraft of one aircraft type; an aircraft's own entry wins over them."""
+    airtime: float | None = Field(default=None, ge=0, le=1e7)
+    diagonal: float | None = Field(default=None, ge=0, le=1e6)
+
+
+class CostPair(Model):
+    """Off-diagonal entry q_ij = q_ji of the symmetric matrix Q, у.е./ч². The pair adds 2·q_ij·t_i·t_j."""
+    a: str = Field(min_length=1, max_length=100)
+    b: str = Field(min_length=1, max_length=100)
+    q: float = Field(ge=-1e6, le=1e6)
+
+
+class CostModel(Model):
+    """J = α·T + cᵀt + tᵀQt in conventional cost units (у.е.); T and t_i in hours.
+
+    T — completion time of the operation, t_i — flight time of aircraft i over all its sorties.
+    α in у.е./ч; c_i — cost of an hour of flight of aircraft i, у.е./ч; Q in у.е./ч². c and the
+    diagonal of Q are keyed by aircraft id; aircraft without their own entry take the defaults.
+    Q must be symmetric positive semidefinite. A model without c (saved before 17.10.2026 evening)
+    has c = 0. A scenario without a model uses the open-data preset (catalog/costs.py).
+    """
+    alpha_per_h: float = Field(default=60, ge=0, le=1e6)
+    airtime_default: float = Field(default=0, ge=0, le=1e7)
+    airtime: dict[str, float] = Field(default_factory=dict)
+    default_diagonal: float = Field(default=30, ge=0, le=1e6)
+    # By aircraft type (profile id): c and q for every aircraft of the type without its own entry.
+    by_profile: dict[str, ProfileCost] = Field(default_factory=dict)
+    diagonal: dict[str, float] = Field(default_factory=dict)
+    pairs: list[CostPair] = Field(default_factory=list, max_length=400)
+
+    @field_validator('diagonal')
+    @classmethod
+    def nonnegative_diagonal(cls, value):
+        for key, q in value.items():
+            if not math.isfinite(q) or q < 0 or q > 1e6:
+                raise ValueError(f'Индивидуальный коэффициент {key}: нужно число от 0 до 10⁶ у.е./ч²')
+        return value
+
+    @field_validator('airtime')
+    @classmethod
+    def nonnegative_airtime(cls, value):
+        for key, c in value.items():
+            if not math.isfinite(c) or c < 0 or c > 1e7:
+                raise ValueError(f'Стоимость часа налета {key}: нужно число от 0 до 10⁷ у.е./ч')
+        return value
+
+
 class AircraftProfileInput(Model):
     name: str = Field(min_length=1, max_length=100)
     airframe: Literal['multirotor', 'fixed_wing'] = 'multirotor'
@@ -176,7 +301,7 @@ class AircraftInstance(Model):
     id: str = Field(min_length=1, max_length=100)
     profile_id: str = Field(min_length=1, max_length=100)
     battery_percent: float = Field(gt=0, le=100)
-    payload: Literal["rgb", "multispectral", "thermal", "lidar", "geophysical"]
+    payload: SurveyType
     start_site_id: str | None = None
     airspeed_mps: float | None = Field(default=None, ge=2, le=100)
     camera_id: Literal['sony_rx1rm2_v1', 'geoscan_pf1b_v1', 'geoscan_pollux_v1', 'sony_umc_r10c_v1'] | None = None
@@ -185,6 +310,9 @@ class AircraftInstance(Model):
     # Flight level of this aircraft (AGL): survey and transit. None: the survey altitude, or an
     # automatically assigned echelon when the scenario asks for echelons.
     altitude_m: float | None = Field(default=None, ge=20, le=300)
+    # Survey equipment available to this aircraft (sensor profile ids). Used with survey
+    # requirements; a sortie carries one of them. None: the single payload/camera of version 1.
+    sensors: list[str] | None = Field(default=None, max_length=20)
 
 
 class FixedWingSettings(Model):
@@ -241,6 +369,9 @@ class SurveySettings(Model):
     echelons: bool = False
     vertical_separation_m: float = Field(default=20, ge=5, le=100)
     altitude_ceiling_m: float = Field(default=150, ge=20, le=1000)
+    # Ground time to change the payload when the next sortie needs another sensor. No customer data:
+    # a conservative assumption. One sortie carries one sensor; no simultaneous survey types.
+    payload_change_min: float = Field(default=15, ge=0, le=240)
 
     @model_validator(mode="after")
     def terrain_range(self):
@@ -289,10 +420,52 @@ class Scenario(Model):
     sites: list[Site] = Field(default_factory=list, max_length=100)
     fleet: list[AircraftInstance] = Field(default_factory=list, max_length=50)
     weather: Weather
-    survey_type: Literal["rgb", "multispectral", "thermal", "lidar", "geophysical"] = "rgb"
-    objective: Literal["min_completion_time", "min_total_airtime"]
+    survey_type: SurveyType = "rgb"
+    objective: Literal["min_completion_time", "min_total_airtime", "min_cost"]
     settings: SurveySettings = Field(default_factory=SurveySettings)
     aircraft_profiles: list[AircraftProfile] = Field(default_factory=list, max_length=50)
+    # Version 1.2. Stable ids of the survey areas, in the order survey_area, additional_survey_areas.
+    area_ids: list[str] | None = Field(default=None, max_length=200)
+    # Survey requirements; None — the single survey_type over all areas (scenarios before 1.2).
+    requirements: list[SurveyRequirement] | None = Field(default=None, max_length=100)
+    # Snapshot of the sensor profiles the fleet refers to, as the aircraft profiles above.
+    sensor_profiles: list[SensorProfile] = Field(default_factory=list, max_length=200)
+    cost_model: CostModel | None = None
+
+    def area_id_list(self) -> list[str]:
+        count = 1 + len(self.additional_survey_areas)
+        return list(self.area_ids) if self.area_ids else [f'zone-{n}' for n in range(1, count + 1)]
+
+    @model_validator(mode="after")
+    def survey_model(self):
+        count = 1 + len(self.additional_survey_areas)
+        if self.area_ids is not None:
+            if len(self.area_ids) != count:
+                raise ValueError(f'area_ids: {len(self.area_ids)} идентификаторов на {count} зон съемки')
+            if len(set(self.area_ids)) != count:
+                raise ValueError('area_ids: идентификаторы зон повторяются')
+        if self.requirements is not None:
+            known = set(self.area_id_list())
+            ids = [r.id for r in self.requirements]
+            if len(ids) != len(set(ids)):
+                raise ValueError('Повторяющиеся идентификаторы требований съемки')
+            for r in self.requirements:
+                unknown = [a for a in r.area_ids if a not in known]
+                if unknown:
+                    raise ValueError(f'Требование {r.id}: нет зон {", ".join(unknown)}')
+        sensors = [(s.id, s.version) for s in self.sensor_profiles]
+        if len({s for s, _ in sensors}) != len(sensors):
+            raise ValueError('В снимке профилей сенсоров идентификатор повторяется')
+        return self
+
+    @field_validator('cost_model')
+    @classmethod
+    def cost_model_fits_fleet(cls, value, info):
+        # A field validator, so an error points at cost_model; the fleet is validated before it.
+        if value is not None and 'fleet' in info.data:
+            from bas.planning.cost import resolve, validate_cost_model
+            validate_cost_model(resolve(value, info.data['fleet']), [a.id for a in info.data['fleet']])
+        return value
 
     @model_validator(mode="after")
     def unique_ids(self):

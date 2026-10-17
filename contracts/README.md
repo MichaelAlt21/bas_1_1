@@ -105,3 +105,26 @@ GeoJSON остается двумерным. Высоты AGL, время, ск�
 
 `scenario.echelons.example.json` — 8 Gemini с двух площадок: по четыре летят к дальнему району общим коридором.
 Подробности: [ECHELONS_AND_FIXED_WING.md](../docs/ECHELONS_AND_FIXED_WING.md).
+
+## Расширение версии 1.2
+
+Все новые поля необязательны; сценарий без них считается прежним путем (один вид съемки на все зоны).
+
+- `area_ids` — идентификаторы зон в порядке `survey_area`, затем `additional_survey_areas`;
+  без поля зоны называются `zone-1`, `zone-2`, …
+- `requirements` — требования съемки: `id`, `name`, `area_ids`, `survey_type`,
+  `side_overlap_percent`, `front_overlap_percent`, `max_gsd_cm`, `altitude_m`, `swath_width_m`,
+  `line_spacing_m`, `max_speed_mps`. С требованиями `survey_type` и параметры съемки в
+  `settings` (тип покрытия, ширина, перекрытия, предел GSD) не используются.
+- Борт: `sensors` — список профилей сенсоров (`geoscan_pf1b_v1`, `generic_thermal`, …).
+- `sensor_profiles` — снимок профилей сенсоров; сервер заполняет его при сохранении.
+- `cost_model` — `alpha_per_h`, `airtime_default`, `airtime`, `default_diagonal`, `diagonal`, `by_profile` (c и q по типу борта), `pairs`; без модели — коэффициенты по открытым данным; `objective` — также `min_cost`.
+- `settings.payload_change_min` — смена нагрузки между вылетами с разными сенсорами (15 мин).
+- Результат: у миссии `sensor_id`, `sensor_name`, `requirement_ids`, `surveys`, `change_s`; у
+  участков съемки `requirement_id`; у плана `cost`, `diagnostics`,
+  `metrics.coverage_by_requirement`; `algorithm_version` — `1.2`.
+
+`scenario.multisurvey.example.json` — поле (ортофото и вегетация) и завод (тепловизор), четыре борта
+с разными сенсорами, цель — минимум стоимости. Преобразование сценария 1.1 —
+`backend/src/bas/domain/migration.py`. Подробности: [MULTI_SURVEY_AND_SENSORS.md](../docs/MULTI_SURVEY_AND_SENSORS.md),
+[COST_CRITERION.md](../docs/COST_CRITERION.md).

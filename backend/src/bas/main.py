@@ -18,7 +18,11 @@ mimetypes.add_type('application/javascript', '.js')
 mimetypes.add_type('application/javascript', '.mjs')
 mimetypes.add_type('image/svg+xml', '.svg')
 
-from bas.domain.models import AircraftProfile, AircraftProfileInput, PlanningRequest, RestrictionZone, Scenario, StoredScenario, TaskEstimateRequest, WeatherObservation
+from bas.domain.models import AircraftProfile, AircraftProfileInput, PlanningRequest, RestrictionZone, Scenario, SensorProfile, SensorProfileInput, StoredScenario, TaskEstimateRequest, WeatherObservation
+from bas.catalog import costs, sensor_service
+from bas.planning.diagnostics import from_error, make as diagnostic, navigate
+import logging
+import re
 from bas.catalog.service import builtin_profiles, resolve_profiles
 from bas.catalog.cameras import CAMERAS
 from bas.infrastructure.database import list_profiles, save_profile
@@ -39,7 +43,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from typing import Literal
 
-VERSION = '1.1.0'
+VERSION = '1.2.0'
 
 
 class UnicodeJSONResponse(JSONResponse):
@@ -68,7 +72,19 @@ def create_app(database_url: str | None = None, weather_service=None, database_s
     @app.exception_handler(RequestValidationError)
     async def validation_error(request, error):
         # Pydantic's raw `input` can contain connection secrets; never echo it.
-        return UnicodeJSONResponse(status_code=422,content={'detail':[{'loc':e['loc'],'msg':e['msg'],'type':e['type']} for e in error.errors()]})
+        errors = [{'loc':e['loc'],'msg':_russian(e),'type':e['type']} for e in error.errors()]
+        return UnicodeJSONResponse(status_code=422,content={'detail':errors,'diagnostics':[_input_diagnostic(e) for e in errors[:20]]})
+
+    @app.exception_handler(Exception)
+    async def internal_error(request, error):
+        # A fault of the service, not of the scenario: logged in full, answered without internals.
+        reference = uuid4().hex[:8]
+        logging.getLogger('bas').exception('Внутренняя ошибка %s при %s %s', reference, request.method, request.url.path)
+        message = f'Внутренняя ошибка сервиса (код {reference}). Введенные данные сохранены в интерфейсе; повторите действие или сообщите код разработчикам.'
+        return UnicodeJSONResponse(status_code=500, content={'detail': {'code': 'INTERNAL', 'message': message, 'diagnostics': [diagnostic('INTERNAL', message)]}})
+
+    def planning_failure(error, scenario=None):
+        return HTTPException(422, {'code': error.code, 'message': str(error), 'diagnostics': from_error(error, scenario)})
 
     @app.exception_handler(StarletteHTTPException)
     async def http_error(request, error):
@@ -121,9 +137,57 @@ def create_app(database_url: str | None = None, weather_service=None, database_s
     def cameras():
         return CAMERAS
 
+    def sensor_failure(error):
+        return HTTPException(error.status, {'code': 'SENSOR_PROFILE', 'message': str(error), 'conflicts': error.conflicts})
+
+    @app.get('/api/catalog/sensors', response_model=list[SensorProfile])
+    def sensors():
+        return sensor_service.catalog(engine)
+
+    @app.get('/api/catalog/sensors/export')
+    def export_sensors(ids: str | None = Query(None, max_length=5000)):
+        chosen = sensor_service.catalog(engine)
+        if ids:
+            wanted = set(ids.split(','))
+            chosen = [p for p in chosen if p.id in wanted]
+        return Response(json.dumps(sensor_service.export_document(chosen), ensure_ascii=False, indent=1), media_type='application/json; charset=utf-8',
+                        headers={'Content-Disposition': 'attachment; filename="kumo-sensor-profiles.json"'})
+
+    @app.get('/api/catalog/sensors/{sensor_id}/versions', response_model=list[SensorProfile])
+    def sensor_versions(sensor_id: str):
+        found = sensor_service.versions(engine, sensor_id)
+        if not found: raise HTTPException(404, 'Профиль не найден')
+        return found
+
+    @app.post('/api/catalog/sensors', response_model=SensorProfile, status_code=201)
+    def create_sensor(profile: SensorProfileInput, sensor_id: str | None = Query(None, alias='id', pattern=r'^[a-zA-Z0-9_.:-]{1,100}$')):
+        try:
+            return sensor_service.create(engine, profile, sensor_id)
+        except sensor_service.SensorCatalogError as error:
+            raise sensor_failure(error) from None
+
+    @app.put('/api/catalog/sensors/{sensor_id}', response_model=SensorProfile)
+    def update_sensor(sensor_id: str, profile: SensorProfileInput):
+        try:
+            return sensor_service.update(engine, sensor_id, profile)
+        except sensor_service.SensorCatalogError as error:
+            raise sensor_failure(error) from None
+
+    @app.post('/api/catalog/sensors/import')
+    def import_sensors(document: dict = Body(...), on_conflict: Literal['reject', 'new_version', 'rename'] = Query('reject')):
+        try:
+            return sensor_service.import_document(engine, document, on_conflict)
+        except sensor_service.SensorCatalogError as error:
+            raise sensor_failure(error) from None
+
     @app.get("/api/catalog/aircraft", response_model=list[AircraftProfile])
     def aircraft():
         return builtin_profiles()+list_profiles(engine)
+
+    @app.get('/api/catalog/cost-preset')
+    def cost_preset():
+        # Coefficients of J from open data with the source and status of every input.
+        return costs.document(aircraft())
 
     @app.post('/api/catalog/aircraft', response_model=AircraftProfile, status_code=201)
     def create_profile(profile: AircraftProfileInput):
@@ -140,9 +204,10 @@ def create_app(database_url: str | None = None, weather_service=None, database_s
     def create_scenario(scenario: Scenario):
         try:
             profiles = resolve_profiles(scenario, aircraft())
-            scenario = scenario.model_copy(update={'aircraft_profiles': list(profiles.values())})
+            scenario = scenario.model_copy(update={'aircraft_profiles': list(profiles.values()),
+                                                   'sensor_profiles': sensor_service.snapshot(engine, scenario)})
         except PlanningError as error:
-            raise HTTPException(422, {'code': error.code, 'message': str(error)}) from error
+            raise planning_failure(error, scenario) from error
         return save_scenario(engine, scenario)
 
     @app.get('/api/scenarios')
@@ -164,7 +229,7 @@ def create_app(database_url: str | None = None, weather_service=None, database_s
         try:
             return save_plan(engine, request.scenario_id, plan(record.scenario))
         except PlanningError as error:
-            raise HTTPException(422, {"code": error.code, "message": str(error)}) from error
+            raise planning_failure(error, record.scenario) from error
 
     @app.post('/api/scenarios/{scenario_id}/fleet-analysis')
     def scenario_fleet_analysis(scenario_id: UUID):
@@ -257,6 +322,50 @@ def create_app(database_url: str | None = None, weather_service=None, database_s
         app.mount('/', StaticFiles(directory=static_dir, html=True), name='frontend')
 
     return app
+
+
+FIELD_TARGETS = [
+    (('cost_model',), ('settings', 'cost', 'cost')),
+    (('requirements',), ('settings', 'requirements', None)),
+    (('fleet',), ('fleet', 'fleet', None)),
+    (('weather',), ('settings', 'weather', 'weather.wind_speed_mps')),
+    (('settings', 'fixed_wing'), ('settings', 'survey', None)),
+    (('settings',), ('settings', 'survey', None)),
+    (('sites',), ('scenario', 'sites', None)),
+]
+
+
+# Pydantic's messages for the common checks, in the operator's language; anything else stays as is.
+_MESSAGES = {
+    'missing': 'обязательное поле', 'string_too_short': 'не может быть пустым', 'string_too_long': 'слишком длинное значение (не более {max_length})',
+    'greater_than': 'должно быть больше {gt}', 'greater_than_equal': 'должно быть не меньше {ge}', 'less_than': 'должно быть меньше {lt}',
+    'less_than_equal': 'должно быть не больше {le}', 'too_short': 'нужно не меньше {min_length} элементов', 'too_long': 'не более {max_length} элементов',
+    'float_parsing': 'нужно число', 'int_parsing': 'нужно целое число', 'float_type': 'нужно число', 'int_type': 'нужно целое число',
+    'literal_error': 'допустимые значения: {expected}', 'string_pattern_mismatch': 'недопустимые символы: латиница, цифры и _ . : -',
+    'date_from_datetime_parsing': 'нужна дата ГГГГ-ММ-ДД', 'date_parsing': 'нужна дата ГГГГ-ММ-ДД', 'extra_forbidden': 'неизвестное поле',
+}
+
+
+def _russian(error):
+    template = _MESSAGES.get(error['type'])
+    if template is None:
+        return re.sub(r'^Value error, ', '', error['msg'])
+    try:
+        return template.format(**{k: v for k, v in (error.get('ctx') or {}).items()})
+    except (KeyError, IndexError):
+        return error['msg']
+
+
+def _input_diagnostic(error):
+    """An invalid field of the request as a diagnostic that leads to the field in the interface."""
+    loc = [str(x) for x in error['loc'] if x != 'body']
+    message = f"{'.'.join(loc) or 'запрос'}: {re.sub(r'^Value error, ', '', error['msg'])}"
+    for prefix, (tab, section, field) in FIELD_TARGETS:
+        if tuple(loc[:len(prefix)]) == prefix:
+            if prefix == ('settings',) and len(loc) > 1:
+                field = f'settings.{loc[1]}'
+            return diagnostic('INPUT_INVALID', message, actions=[navigate('Перейти к полю', tab, section, field)])
+    return diagnostic('INPUT_INVALID', message)
 
 
 app = create_app()

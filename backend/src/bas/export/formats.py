@@ -28,7 +28,8 @@ def kml(plan):
         props=feature['properties']; geometry=feature['geometry']
         mark=SubElement(doc,'Placemark')
         flight=props['aircraft_id']+(f" · рейс {props['sortie']}" if props.get('sortie',1)>1 else '')
-        SubElement(mark,'name').text=f"{flight} / {props.get('phase',props.get('kind'))} / {props.get('sequence','')}"
+        extra=f" / {props['requirement_id']} · {props.get('sensor_name','')}" if props.get('requirement_id') and props.get('phase')=='survey' else ''
+        SubElement(mark,'name').text=f"{flight} / {props.get('phase',props.get('kind'))} / {props.get('sequence','')}{extra}"
         ext=SubElement(mark,'ExtendedData')
         for key,value in props.items():
             SubElement(SubElement(ext,'Data',name=key),'value').text=json.dumps(value,ensure_ascii=False)

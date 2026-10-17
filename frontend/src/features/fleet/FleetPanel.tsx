@@ -1,15 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Aircraft, AircraftProfile, CameraProfile, Draft } from '../../shared/types';
+import type { Aircraft, AircraftProfile, CameraProfile, Draft, SensorProfile } from '../../shared/types';
+import { isMulti, renameAircraft, sensorsOf, sensorUsable, TYPE_NAMES, withFleet } from '../scenarios/requirements';
 import ProfileForm from './ProfileForm';
 import { addAircraft, groupFleet, MAX_FLEET } from './fleetModel';
 import { aircraftAltitude } from '../scenarios/levels';
 
 interface Props {
- draft:Draft; catalog:AircraftProfile[]; cameras:CameraProfile[]; initialSiteId:string|null;
+ draft:Draft; catalog:AircraftProfile[]; cameras:CameraProfile[]; sensors:SensorProfile[]; initialSiteId:string|null;
  onChange:(draft:Draft)=>void; onCreated:(profile:AircraftProfile)=>void; onLocate:(id:string)=>void;
 }
 
-export default function FleetPanel({draft,catalog,cameras,initialSiteId,onChange,onCreated,onLocate}:Props){
+function AircraftName({id,onRename}:{id:string;onRename:(next:string)=>string|null}){
+ const [value,setValue]=useState(id);const [error,setError]=useState('');
+ useEffect(()=>{setValue(id);setError('');},[id]);
+ const commit=()=>{const next=value.trim();if(next===id){setValue(id);return;}const problem=onRename(next);setError(problem||'');if(problem)setValue(id);};
+ return <><input className="aircraft-name" aria-label={`Бортовой номер ${id}`} maxLength={100} value={value} onChange={e=>setValue(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter')commit();if(e.key==='Escape')setValue(id);}}/>{error&&<small className="error" role="alert">{error}</small>}</>;
+}
+
+export default function FleetPanel({draft,catalog,cameras,sensors,initialSiteId,onChange,onCreated,onLocate}:Props){
+ const multi=isMulti(draft);
  const [adding,setAdding]=useState(!draft.fleet.length);
  const [profileId,setProfileId]=useState('');
  const [targetId,setTargetId]=useState(initialSiteId||'');
@@ -29,7 +38,9 @@ export default function FleetPanel({draft,catalog,cameras,initialSiteId,onChange
   setTargetId(siteId||'');setAdding(true);setError('');setNotice('');
   requestAnimationFrame(()=>composer.current?.scrollIntoView({block:'nearest',behavior:'smooth'}));
  };
- const commit=(fleet:Aircraft[])=>{noticeFleet.current=fleet;onChange({...draft,fleet});};
+ // The cost model keeps only aircraft of the fleet; in the requirements model new aircraft list their sensors.
+ const commit=(fleet:Aircraft[])=>{const next=multi?fleet.map(a=>a.sensors!=null?a:{...a,sensors:sensorsOf(a)}):fleet;noticeFleet.current=next;onChange(withFleet(draft,next));};
+ const rename=(from:string,to:string)=>{try{const next=renameAircraft(draft,from,to);noticeFleet.current=next.fleet;onChange(next);setNotice(`${from} переименован в ${to}; коэффициенты стоимости перенесены.`);return null;}catch(e){return (e as Error).message;}};
  const update=(id:string,patch:Partial<Aircraft>)=>{commit(draft.fleet.map(a=>a.id===id?{...a,...patch}:a));setNotice('');};
  const renderAircraft=(aircraft:Aircraft)=>{
   const model=catalog.find(p=>p.id===aircraft.profile_id);
@@ -38,14 +49,23 @@ export default function FleetPanel({draft,catalog,cameras,initialSiteId,onChange
   const camera=cameras.find(c=>c.id===aircraft.camera_id);
   const height=aircraftAltitude(aircraft,draft.settings.altitude_m);
   return <article className="fleet-unit" key={aircraft.id} aria-label={`Борт ${aircraft.id}`}>
-   <div className="fleet-unit-heading"><div><strong>{aircraft.id}</strong><small>{model?.name||aircraft.profile_id}</small></div><button className="remove-aircraft" aria-label={`Убрать ${aircraft.id} из парка`} onClick={()=>{commit(draft.fleet.filter(a=>a.id!==aircraft.id));setNotice(`${aircraft.id} убран из парка. Вернуть: «Отменить» в верхней панели.`);}}>Убрать</button></div>
-   <div className="fleet-unit-fields"><label>Заряд, %<input aria-label={`Заряд ${aircraft.id}, %`} type="number" min={1} max={100} value={aircraft.battery_percent} onChange={e=>update(aircraft.id,{battery_percent:e.target.valueAsNumber||0})}/></label>
-    <label>Площадка<select aria-label={`Площадка для ${aircraft.id}`} value={validSite?aircraft.start_site_id||'':''} onChange={e=>{const id=e.target.value;update(aircraft.id,{start_site_id:id||null});setNotice(`${aircraft.id}: ${groups.assigned.find(g=>g.site.id===id)?.site.name||'без площадки'}.`);}}><option value="">Без площадки</option>{groups.assigned.map(({site})=><option key={site.id} value={site.id}>{site.name}</option>)}</select></label>
+   <div className="fleet-unit-heading"><div><AircraftName id={aircraft.id} onRename={next=>rename(aircraft.id,next)}/><small>{model?.name||aircraft.profile_id}</small></div><button className="remove-aircraft" aria-label={`Убрать ${aircraft.id} из парка`} onClick={()=>{commit(draft.fleet.filter(a=>a.id!==aircraft.id));setNotice(`${aircraft.id} убран из парка. Вернуть: «Отменить» в верхней панели.`);}}>Убрать</button></div>
+   <div className="fleet-unit-fields"><label data-nav={`aircraft:${aircraft.id}:battery`}>Заряд, %<input aria-label={`Заряд ${aircraft.id}, %`} type="number" min={1} max={100} value={aircraft.battery_percent} onChange={e=>update(aircraft.id,{battery_percent:e.target.valueAsNumber||0})}/></label>
+    <label data-nav={`aircraft:${aircraft.id}:site`}>Площадка<select aria-label={`Площадка для ${aircraft.id}`} value={validSite?aircraft.start_site_id||'':''} onChange={e=>{const id=e.target.value;update(aircraft.id,{start_site_id:id||null});setNotice(`${aircraft.id}: ${groups.assigned.find(g=>g.site.id===id)?.site.name||'без площадки'}.`);}}><option value="">Без площадки</option>{groups.assigned.map(({site})=><option key={site.id} value={site.id}>{site.name}</option>)}</select></label>
    </div>
-   <label>Скорость {aircraft.id}, м/с<input type="number" min={model?.airframe==='fixed_wing'?18:2} max={model?.max_horizontal_speed_mps||100} step={.5} placeholder={`По умолчанию: ${model?.airframe==='fixed_wing'?draft.settings.fixed_wing?.airspeed_mps||22:draft.settings.airspeed_mps}`} value={aircraft.airspeed_mps??''} onChange={e=>update(aircraft.id,{airspeed_mps:e.target.value===''?null:e.target.valueAsNumber||0})}/></label>
-   <label>Высота {aircraft.id}, м<input type="number" min={model?.airframe==='fixed_wing'?100:20} max={300} placeholder={draft.settings.echelons?`Авто: от ${draft.settings.altitude_m}`:`Общая: ${draft.settings.altitude_m}`} value={aircraft.altitude_m??''} onChange={e=>update(aircraft.id,{altitude_m:e.target.value===''?null:Math.max(20,Math.min(300,e.target.valueAsNumber||20))})}/></label>
-   {draft.settings.coverage_mode==='camera'&&<>
-    <label>Камера {aircraft.id}<select value={aircraft.camera_id||''} onChange={e=>update(aircraft.id,{camera_id:e.target.value||null})}><option value="">Выберите камеру</option>{compatible.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}{aircraft.camera_id&&!compatible.some(c=>c.id===aircraft.camera_id)&&<option value={aircraft.camera_id}>Несовместимый профиль · {aircraft.camera_id}</option>}</select></label>
+   <label data-nav={`aircraft:${aircraft.id}:speed`}>Скорость {aircraft.id}, м/с<input type="number" min={model?.airframe==='fixed_wing'?18:2} max={model?.max_horizontal_speed_mps||100} step={.5} placeholder={`По умолчанию: ${model?.airframe==='fixed_wing'?draft.settings.fixed_wing?.airspeed_mps||22:draft.settings.airspeed_mps}`} value={aircraft.airspeed_mps??''} onChange={e=>update(aircraft.id,{airspeed_mps:e.target.value===''?null:e.target.valueAsNumber||0})}/></label>
+   <label data-nav={`aircraft:${aircraft.id}:altitude`}>Высота {aircraft.id}, м<input type="number" min={model?.airframe==='fixed_wing'?100:20} max={300} placeholder={draft.settings.echelons?`Авто: от ${draft.settings.altitude_m}`:`Общая: ${draft.settings.altitude_m}`} value={aircraft.altitude_m??''} onChange={e=>update(aircraft.id,{altitude_m:e.target.value===''?null:Math.max(20,Math.min(300,e.target.valueAsNumber||20))})}/></label>
+   {multi&&<fieldset className="sensor-picks" data-nav={`aircraft:${aircraft.id}:sensors`}><legend>Сенсоры {aircraft.id} · один на вылет</legend>
+    {sensors.filter(s=>sensorUsable(s,aircraft.profile_id,model?.origin==='user')||sensorsOf(aircraft).includes(s.id)).map(s=>{
+     const own=sensorsOf(aircraft),usable=sensorUsable(s,aircraft.profile_id,model?.origin==='user');
+     return <label className="check-row" key={s.id}><input type="checkbox" checked={own.includes(s.id)} onChange={e=>update(aircraft.id,{sensors:e.target.checked?[...own,s.id]:own.filter(x=>x!==s.id)})}/>
+      <span className={`type-dot type-${s.sensor_type}`} aria-hidden="true"/>{s.name} <small className="muted">{TYPE_NAMES[s.sensor_type]}{s.demonstration?' · демо':''}{usable?'':' · не подтвержден для модели'}</small></label>;})}
+    {!sensorsOf(aircraft).length&&<p className="fleet-warning">Сенсоры не выбраны: борт не сможет выполнить ни одно требование.</p>}
+    {sensorsOf(aircraft).length>1&&<p className="hint">Смена сенсора между вылетами — {draft.settings.payload_change_min??15} мин на земле; одновременная съемка разными сенсорами не планируется.</p>}
+   </fieldset>}
+   {multi&&sensorsOf(aircraft).some(id=>sensors.find(s=>s.id===id)?.geometry==='frame')&&<label data-nav={`aircraft:${aircraft.id}:trigger`}>Минимальный интервал снимков {aircraft.id}, с<input type="number" min={.1} max={60} step={.1} placeholder="Не подтвержден" value={aircraft.trigger_interval_s??''} onChange={e=>update(aircraft.id,{trigger_interval_s:e.target.value===''?null:e.target.valueAsNumber||0})}/></label>}
+   {!multi&&draft.settings.coverage_mode==='camera'&&<>
+    <label data-nav={`aircraft:${aircraft.id}:camera`}>Камера {aircraft.id}<select value={aircraft.camera_id||''} onChange={e=>update(aircraft.id,{camera_id:e.target.value||null})}><option value="">Выберите камеру</option>{compatible.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}{aircraft.camera_id&&!compatible.some(c=>c.id===aircraft.camera_id)&&<option value={aircraft.camera_id}>Несовместимый профиль · {aircraft.camera_id}</option>}</select></label>
     {!compatible.length&&<p className="fleet-warning">Подтвержденного профиля камеры пока нет. Используйте ручную ширину захвата или другой борт.</p>}
     {camera&&<p className="muted">GSD ≈ {(Math.max(camera.sensor_width_mm/camera.image_width_px,camera.sensor_height_mm/camera.image_height_px)*height/camera.focal_length_mm*100).toFixed(2)} см/пикс · захват {(height*camera.sensor_width_mm/camera.focal_length_mm).toFixed(1)} м на {height} м. <a href={camera.source_url} target="_blank" rel="noopener noreferrer">Источник</a></p>}
     <label>Минимальный интервал снимков {aircraft.id}, с<input type="number" min={.1} max={60} step={.1} placeholder="Не подтвержден" value={aircraft.trigger_interval_s??''} onChange={e=>update(aircraft.id,{trigger_interval_s:e.target.value===''?null:e.target.valueAsNumber||0})}/></label>
@@ -54,7 +74,7 @@ export default function FleetPanel({draft,catalog,cameras,initialSiteId,onChange
    {aircraft.battery_percent<=draft.settings.reserve_percent&&<p className="fleet-warning">Заряд должен быть выше резерва {draft.settings.reserve_percent}%.</p>}
   </article>;
  };
- return <section className="fleet-manager" aria-label="Управление парком">
+ return <section className="fleet-manager" aria-label="Управление парком" data-section="fleet">
   <div className="fleet-overview"><div><strong>{draft.fleet.length} / {MAX_FLEET}</strong><span>БПЛА в операции</span></div><div><strong>{groups.assigned.length}</strong><span>стартовых площадок</span></div></div>
   <button className="primary full" disabled={!available} onClick={()=>beginAdd(initialSiteId)}>+ Добавить БПЛА</button>
   {!available&&<p className="muted">Достигнут лимит демонстрации: {MAX_FLEET} БПЛА. Уберите борт, чтобы добавить другой.</p>}

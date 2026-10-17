@@ -1,0 +1,202 @@
+{
+ "scenario.echelons.example.json": {
+  "area_ids": [
+   "zone-1",
+   "zone-2"
+  ],
+  "requirements": [
+   {
+    "id": "survey",
+    "name": "Съемка",
+    "area_ids": [
+     "zone-1",
+     "zone-2"
+    ],
+    "survey_type": "rgb",
+    "side_overlap_percent": 30,
+    "front_overlap_percent": 70
+   }
+  ],
+  "sensors": [
+   [
+    "geoscan_pf1b_v1"
+   ],
+   [
+    "geoscan_pf1b_v1"
+   ],
+   [
+    "geoscan_pf1b_v1"
+   ],
+   [
+    "geoscan_pf1b_v1"
+   ],
+   [
+    "geoscan_pf1b_v1"
+   ],
+   [
+    "geoscan_pf1b_v1"
+   ],
+   [
+    "geoscan_pf1b_v1"
+   ],
+   [
+    "geoscan_pf1b_v1"
+   ]
+  ]
+ },
+ "scenario.example.json": {
+  "area_ids": [
+   "zone-1"
+  ],
+  "requirements": [
+   {
+    "id": "survey",
+    "name": "Съемка",
+    "area_ids": [
+     "zone-1"
+    ],
+    "survey_type": "rgb",
+    "side_overlap_percent": 30,
+    "front_overlap_percent": 70,
+    "swath_width_m": 100
+   }
+  ],
+  "sensors": [
+   [
+    "generic_rgb"
+   ],
+   [
+    "generic_rgb"
+   ]
+  ]
+ },
+ "scenario.fixedwing.example.json": {
+  "area_ids": [
+   "zone-1"
+  ],
+  "requirements": [
+   {
+    "id": "survey",
+    "name": "Съемка",
+    "area_ids": [
+     "zone-1"
+    ],
+    "survey_type": "rgb",
+    "side_overlap_percent": 30,
+    "front_overlap_percent": 70
+   }
+  ],
+  "sensors": [
+   [
+    "sony_rx1rm2_v1"
+   ],
+   [
+    "geoscan_pf1b_v1"
+   ]
+  ]
+ },
+ "scenario.multiarea.example.json": {
+  "area_ids": [
+   "zone-1",
+   "zone-2"
+  ],
+  "requirements": [
+   {
+    "id": "survey",
+    "name": "Съемка",
+    "area_ids": [
+     "zone-1",
+     "zone-2"
+    ],
+    "survey_type": "rgb",
+    "side_overlap_percent": 30,
+    "front_overlap_percent": 70,
+    "swath_width_m": 100
+   }
+  ],
+  "sensors": [
+   [
+    "generic_rgb"
+   ],
+   [
+    "generic_rgb"
+   ]
+  ]
+ },
+ "scenario.multispectral.example.json": {
+  "area_ids": [
+   "zone-1"
+  ],
+  "requirements": [
+   {
+    "id": "survey",
+    "name": "Съемка",
+    "area_ids": [
+     "zone-1"
+    ],
+    "survey_type": "multispectral",
+    "side_overlap_percent": 30,
+    "front_overlap_percent": 70
+   }
+  ],
+  "sensors": [
+   [
+    "geoscan_pollux_v1"
+   ]
+  ]
+ },
+ "scenario.multisurvey.example.json": {
+  "area_ids": [
+   "field",
+   "plant"
+  ],
+  "requirements": [
+   {
+    "id": "field-rgb",
+    "name": "Поле · ортофото",
+    "area_ids": [
+     "field"
+    ],
+    "survey_type": "rgb",
+    "max_gsd_cm": 2.5,
+    "side_overlap_percent": 30,
+    "front_overlap_percent": 70
+   },
+   {
+    "id": "field-ms",
+    "name": "Поле · вегетация",
+    "area_ids": [
+     "field"
+    ],
+    "survey_type": "multispectral",
+    "side_overlap_percent": 30,
+    "front_overlap_percent": 70
+   },
+   {
+    "id": "plant-ir",
+    "name": "Завод · тепловизор",
+    "area_ids": [
+     "plant"
+    ],
+    "survey_type": "thermal",
+    "swath_width_m": 60,
+    "side_overlap_percent": 20
+   }
+  ],
+  "sensors": [
+   [
+    "geoscan_pf1b_v1",
+    "geoscan_pollux_v1"
+   ],
+   [
+    "geoscan_pf1b_v1"
+   ],
+   [
+    "geoscan_801_thermal_v1"
+   ],
+   [
+    "geoscan_pollux_v1"
+   ]
+  ]
+ }
+}

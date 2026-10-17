@@ -1,0 +1,198 @@
+{
+  "schema_version": "0.1",
+  "name": "Демо · Несколько видов съемки: ортофото, вегетация, тепловизор",
+  "survey_area": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          37.3,
+          55.8
+        ],
+        [
+          37.314,
+          55.8
+        ],
+        [
+          37.314,
+          55.808
+        ],
+        [
+          37.3,
+          55.808
+        ],
+        [
+          37.3,
+          55.8
+        ]
+      ]
+    ]
+  },
+  "additional_survey_areas": [
+    {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            37.322,
+            55.806
+          ],
+          [
+            37.332,
+            55.806
+          ],
+          [
+            37.332,
+            55.812
+          ],
+          [
+            37.322,
+            55.812
+          ],
+          [
+            37.322,
+            55.806
+          ]
+        ]
+      ]
+    }
+  ],
+  "area_ids": [
+    "field",
+    "plant"
+  ],
+  "allowed_airspace": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          37.285,
+          55.79
+        ],
+        [
+          37.345,
+          55.79
+        ],
+        [
+          37.345,
+          55.825
+        ],
+        [
+          37.285,
+          55.825
+        ],
+        [
+          37.285,
+          55.79
+        ]
+      ]
+    ]
+  },
+  "sites": [
+    {
+      "id": "base",
+      "name": "База",
+      "kind": "launch_landing",
+      "coordinates": [
+        37.296,
+        55.797
+      ]
+    },
+    {
+      "id": "east",
+      "name": "Восточная",
+      "kind": "launch_landing",
+      "coordinates": [
+        37.336,
+        55.804
+      ]
+    }
+  ],
+  "fleet": [
+    {
+      "id": "Gemini-01",
+      "profile_id": "gemini",
+      "battery_percent": 100,
+      "payload": "rgb",
+      "start_site_id": "base",
+      "sensors": [
+        "geoscan_pf1b_v1",
+        "geoscan_pollux_v1"
+      ]
+    },
+    {
+      "id": "Gemini-02",
+      "profile_id": "gemini",
+      "battery_percent": 100,
+      "payload": "rgb",
+      "start_site_id": "base",
+      "sensors": [
+        "geoscan_pf1b_v1"
+      ]
+    },
+    {
+      "id": "801-01",
+      "profile_id": "geoscan_801",
+      "battery_percent": 100,
+      "payload": "thermal",
+      "start_site_id": "east",
+      "sensors": [
+        "geoscan_801_thermal_v1"
+      ]
+    },
+    {
+      "id": "Gemini-03",
+      "profile_id": "gemini",
+      "battery_percent": 100,
+      "payload": "multispectral",
+      "start_site_id": "east",
+      "sensors": [
+        "geoscan_pollux_v1"
+      ]
+    }
+  ],
+  "weather": {
+    "wind_speed_mps": 3,
+    "wind_from_deg": 270
+  },
+  "survey_type": "rgb",
+  "objective": "min_cost",
+  "requirements": [
+    {
+      "id": "field-rgb",
+      "name": "Поле · ортофото",
+      "area_ids": [
+        "field"
+      ],
+      "survey_type": "rgb",
+      "max_gsd_cm": 2.5,
+      "side_overlap_percent": 30,
+      "front_overlap_percent": 70
+    },
+    {
+      "id": "field-ms",
+      "name": "Поле · вегетация",
+      "area_ids": [
+        "field"
+      ],
+      "survey_type": "multispectral",
+      "side_overlap_percent": 30,
+      "front_overlap_percent": 70
+    },
+    {
+      "id": "plant-ir",
+      "name": "Завод · тепловизор",
+      "area_ids": [
+        "plant"
+      ],
+      "survey_type": "thermal",
+      "swath_width_m": 60,
+      "side_overlap_percent": 20
+    }
+  ],
+  "settings": {
+    "altitude_m": 100,
+    "sorties_per_aircraft": 3,
+    "echelons": false
+  }
+}

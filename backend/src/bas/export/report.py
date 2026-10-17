@@ -18,7 +18,8 @@ def mission_report(plan: dict, stored: StoredScenario) -> str:
 
     scenario = stored.scenario
     metrics = plan['metrics']
-    objective = 'Быстрее завершить операцию' if plan['objective']=='min_completion_time' else 'Меньше суммарный налет'
+    objective = {'min_completion_time': 'Быстрее завершить операцию', 'min_total_airtime': 'Меньше суммарный налет',
+                 'min_cost': 'Минимум стоимости J = α·T + cᵀt + tᵀQt'}.get(plan['objective'], plan['objective'])
     profiles = {p.id:p for p in scenario.aircraft_profiles}
     sites = {s.id:s for s in scenario.sites}
     fleet = {a.id:a for a in scenario.fleet}
@@ -43,6 +44,7 @@ def mission_report(plan: dict, stored: StoredScenario) -> str:
     def site_name(site_id):
         return sites[site_id].name if site_id in sites else str(site_id)
     mission_rows = []
+    requirement_names = {r.id: (r.name or r.id) for r in (scenario.requirements or [])}
     for mission in plan['missions']:
         aircraft = fleet.get(mission['aircraft_id'])
         profile = profiles.get(mission['profile_id'])
@@ -57,8 +59,10 @@ def mission_report(plan: dict, stored: StoredScenario) -> str:
             f"{mission.get('altitude_m', scenario.settings.altitude_m):g} м",
             '100% (новая АКБ)' if sortie > 1 else f'{aircraft.battery_percent:g}%' if aircraft else '—',
             ground_label(mission), minutes(mission['start_s']), minutes(mission['finish_s']), minutes(mission['flight_time_s']),
-            minutes(mission['budget_s']), f"{mission['distance_m']/1000:.2f} км", alternate_label(mission)])
-    missions = table(['Борт','Модель','Старт','Посадка','Высота','Заряд','Перед вылетом','Старт +','Посадка +','Налет','Бюджет времени','Путь','Резерв'],mission_rows)
+            minutes(mission['budget_s']), f"{mission['distance_m']/1000:.2f} км", alternate_label(mission),
+            # Plans before 1.2 carry no sensor per sortie.
+            (mission.get('sensor_name') or '—') + (f" · {', '.join(requirement_names.get(r, r) for r in mission.get('requirement_ids', []))}" if mission.get('requirement_ids') and requirement_names else '')])
+    missions = table(['Борт','Модель','Старт','Посадка','Высота','Заряд','Перед вылетом','Старт +','Посадка +','Налет','Бюджет времени','Путь','Резерв','Сенсор · требования'],mission_rows)
     separation = plan.get('separation') or {}
     if separation.get('vertical_m'):
         missions += (f"<p>Разведение: не ближе {separation['horizontal_m']:g} м по горизонтали или {separation['vertical_m']:g} м по высоте; "
@@ -79,6 +83,26 @@ def mission_report(plan: dict, stored: StoredScenario) -> str:
             ('Начало / окончание работ', f"{constraints.get('operation_start') or '—'} / {constraints.get('operation_end') or '—'}"),
             ('Ограничение числа бортов', constraints['max_aircraft'] if constraints.get('max_aircraft') is not None else 'нет'),
             ('Задействовано бортов / вылетов', f"{constraints.get('aircraft_used')} / {constraints.get('sorties')}")])
+    requirements = ''
+    if metrics.get('coverage_by_requirement'):
+        requirements = '<h2>Требования съемки</h2>'+table(['Требование','Вид','Зоны','Площадь','Покрытие','Исключено','Борта','Сенсоры'],[
+            (r['label'], r['survey_type'], ', '.join(r['area_ids']), f"{r['area_m2']/10000:.2f} га", f"{r['coverage_percent']:.1f}%",
+             f"{r.get('excluded_m2', 0)/10000:.2f} га", ', '.join(r['aircraft']) or '—', ', '.join(r['sensors']) or '—')
+            for r in metrics['coverage_by_requirement']])+'<p>Каждое требование покрыто и проверено отдельно; площади разных видов съемки не суммируются.</p>'
+    cost_block = ''
+    cost = plan.get('cost')
+    if cost:
+        rows = [('α·T — срок операции', f"{cost['alpha_per_h']:g} у.е./ч × {cost['completion_h']:.3f} ч", f"{cost['linear']:.2f}")]
+        rows += [(f"c·t — налет {x['aircraft_id']}", f"{x.get('c', 0):g} у.е./ч × {x['t_h']:.3f} ч", f"{x.get('airtime_value', 0):.2f}")
+                 for x in cost['individual'] if x['t_h'] > 0 and x.get('c')]
+        rows += [(f"q·t² — {x['aircraft_id']}", f"{x['q']:g} у.е./ч² × {x['t_h']:.3f}² ч²", f"{x['value']:.2f}") for x in cost['individual'] if x['t_h'] > 0]
+        rows += [(f"2·q·t·t — {x['a']} и {x['b']}", f"2 × {x['q']:g} у.е./ч² × {x['t_a_h']:.3f} × {x['t_b_h']:.3f} ч²", f"{x['value']:.2f}") for x in cost['pairs']]
+        rows.append(('J — итого', 'у.е. (условные единицы стоимости)', f"{cost['total']:.2f}"))
+        cost_block = ('<h2>Стоимость J = α·T + cᵀt + tᵀQt</h2>'+table(['Слагаемое','Расчет','Значение, у.е.'],rows)
+                      +'<p>T — время до посадки последнего борта, t — налет каждого борта за все вылеты (ожидание и зарядка в t не входят). '
+                       'c — стоимость часа налета борта, q — риск повторного облета и взаимодействие пар. '
+                       +('Коэффициенты — оценка по открытым данным (ред. 2026-10, 1 у.е. ≈ 1 ₽), не данные заказчика.' if cost.get('default_model')
+                         else 'Коэффициенты заданы в сценарии и не являются экономической калибровкой.')+'</p>')
     upkeep = ''
     if metrics.get('maintenance'):
         unit = {'flights': 'полетов', 'flight_hours': 'ч налета', 'motor_hours': 'моточасов'}
@@ -117,11 +141,11 @@ def mission_report(plan: dict, stored: StoredScenario) -> str:
     camera_rows=[]
     plane_rows=[]
     for mission in plan['missions']:
-        survey=mission.get('survey',{})
-        if survey.get('mode')=='camera':
-            camera_rows.append((mission['aircraft_id'],survey['camera']['name'],f"{mission['airspeed_mps']:g} м/с",
-                                f"{survey['gsd_cm']:.2f} см/пикс",f"{survey['swath_width_m']:.1f} м"+(f" (снос {survey['crab_deg']:.0f}°)" if survey.get('crab_deg',0)>=.5 else ''),
-                                survey['photo_count'],f"{survey['min_photo_interval_s']:.2f} с",survey['camera']['source']))
+        for survey in (mission.get('surveys') or {'': mission.get('survey', {})}).values():
+            if survey.get('mode')=='camera':
+                camera_rows.append((mission['aircraft_id'],survey['camera']['name'],f"{mission['airspeed_mps']:g} м/с",
+                                    f"{survey['gsd_cm']:.2f} см/пикс",f"{survey['swath_width_m']:.1f} м"+(f" (снос {survey['crab_deg']:.0f}°)" if survey.get('crab_deg',0)>=.5 else ''),
+                                    survey['photo_count'],f"{survey['min_photo_interval_s']:.2f} с",survey['camera']['source']))
         assumptions=mission.get('fixed_wing_assumptions')
         if assumptions:
             # Plans before 1.1 carry no bank, lead-in, spiral or release height.
@@ -173,8 +197,8 @@ footer{{margin-top:30px;border-top:1px solid #DDE1E5;padding-top:12px;font-size:
 <div>Суммарный налет<strong>{text(minutes(metrics['total_airtime_s']))}</strong></div>
 <div>Площадь<strong>{metrics['area_m2']/10000:.1f} га</strong></div>
 <div>Геометрическое покрытие<strong>{metrics['coverage_percent']:.1f}%</strong></div></div>
-{zones}{limits}<h2>Миссии и расписание</h2><p>Время старта и посадки отсчитывается от начала операции. Бюджет времени уже учитывает расчетный резерв.</p>{missions}
-{upkeep}<h2>Параметры съемки</h2>{parameters}{airspace}{cameras}{planes}<h2>Условия расчета</h2><p>{text(weather)}</p>
+{zones}{requirements}{limits}<h2>Миссии и расписание</h2><p>Время старта и посадки отсчитывается от начала операции. Бюджет времени уже учитывает расчетный резерв.</p>{missions}
+{cost_block}{upkeep}<h2>Параметры съемки</h2>{parameters}{airspace}{cameras}{planes}<h2>Условия расчета</h2><p>{text(weather)}</p>
 <h2>Площадки · WGS84</h2>{places}<h2>Характеристики парка</h2>{sources}
 <h2>Допущения и ограничения</h2><ul>{warnings}</ul>
 <p>Эвристика выбирает из двух направлений галсов (для самолета в ветре — еще вдоль и поперек ветра). Глобальная оптимальность не доказана.</p>

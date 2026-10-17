@@ -371,3 +371,83 @@ footer{padding:10px 16px;display:flex;justify-content:space-between;gap:12px;fon
 :root[data-theme="dark"] .ol-attribution{background:#1A1D21cc}
 :root[data-theme="dark"] .ol-attribution a,:root[data-theme="dark"] .ol-attribution li{color:var(--text-2)}
 :root[data-theme="dark"] .fleet-model-preview img{background:#E9ECEF}
+
+/* 1.2 · survey requirements, sensors, cost, diagnostics, search */
+.type-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;flex-shrink:0;background:var(--text-3);vertical-align:baseline}
+.type-rgb{--type:#2F6FDB}.type-multispectral{--type:#2E9E5B}.type-thermal{--type:#D9480F}.type-lidar{--type:#7C4DDB}.type-geophysical{--type:#9C6B30}
+.type-dot[class*="type-"]{background:var(--type)}
+.chip.type-chip{border:1px solid var(--type);background:transparent;color:var(--text);cursor:pointer}
+.chip.type-chip:hover{background:var(--surface-2)}
+.zone-card{border-bottom:1px solid var(--surface-3)}.zone-card .geometry-row{border-bottom:0}.zone-card .chips{margin:0 0 8px 20px}
+.requirement-card{border:1px solid var(--border);border-left:3px solid var(--type,var(--border-strong));border-radius:var(--radius);padding:10px 12px;margin:0 0 10px;background:var(--surface)}
+.requirement-card>small{display:block;margin:2px 0 6px}
+.zone-picks,.sensor-picks{border:1px solid var(--border);border-radius:6px;padding:6px 10px;margin:8px 0}
+.zone-picks legend,.sensor-picks legend{font-size:12px;color:var(--text-3);padding:0 4px}
+.sensor-picks .check-row{align-items:center}
+.link-button{border:0;background:none;padding:0;color:var(--link);text-decoration:underline;cursor:pointer;font-size:inherit}
+.aircraft-name{font-weight:650;border:1px solid transparent;background:transparent;padding:1px 4px;margin:0 0 0 -5px;width:100%;max-width:220px}
+.aircraft-name:hover,.aircraft-name:focus{border-color:var(--border-strong);background:var(--surface)}
+.sensor-list{list-style:none;padding:0;margin:8px 0}
+.sensor-item{border-bottom:1px solid var(--surface-3);padding:6px 0}
+.sensor-item summary{cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}
+.sensor-detail{padding:6px 0 4px 15px;font-size:12px}
+.badges{display:inline-flex;flex-wrap:wrap;gap:4px}
+.badge{font-size:11px;padding:1px 7px;border-radius:9px;background:var(--surface-3);color:var(--text-2);white-space:nowrap}
+.badge.warn,.badge.warning{background:var(--warn-soft);color:var(--warn)}
+.badge.error{background:var(--danger-soft);color:var(--danger)}
+.badge.info{background:var(--ok-soft);color:var(--ok-text)}
+.status-tag{font-size:11px;padding:0 6px;border-radius:8px;white-space:nowrap}
+.status-tag.confirmed{background:var(--ok-soft);color:var(--ok-text)}.status-tag.computed{background:var(--surface-3);color:var(--text-2)}
+.status-tag.assumed{background:var(--warn-soft);color:var(--warn)}.status-tag.unknown{background:var(--danger-soft);color:var(--danger)}
+.data-table.compact td,.data-table.compact th{padding:4px 6px;font-size:12px}
+.data-table.compact input{margin:0;padding:3px 6px;max-width:150px}
+.data-table tr.total td{font-weight:650}.data-table td.best{font-weight:700;color:var(--ok)}.data-table tr.active td{background:var(--accent-surface)}
+.data-table td.warn{color:var(--warn);font-weight:600}
+.cost-metrics strong{font-size:17px}
+.cost-compare{margin:6px 0 14px}
+.cost-bars{display:grid;gap:6px;margin:8px 0}
+.cost-bar-row{display:grid;grid-template-columns:minmax(120px,190px) 1fr 70px;align-items:center;gap:10px;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:6px 10px;text-align:left;font-size:12px}
+.cost-bar-row.active{border-color:var(--accent);background:var(--accent-surface)}
+.cost-bar-track{display:flex;height:14px;background:var(--surface-3);border-radius:4px;overflow:hidden}
+.cost-bar-value{text-align:right;font-weight:650;font-variant-numeric:tabular-nums}
+.cost-seg{display:inline-block;height:100%}.cost-seg.linear{background:#2F6FDB}.cost-seg.flying{background:#2E9E5B}.cost-seg.individual{background:var(--accent)}.cost-seg.pairs{background:#7C4DDB}
+.cost-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--text-2)}.cost-legend .cost-seg{width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.run-hint{margin:6px 0 0}
+.segmented.objectives button{padding:6px 4px}
+.diagnostics{margin:10px 0;border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;background:var(--surface)}
+.diagnostics ul{list-style:none;margin:0;padding:0}
+.diagnostic{border-left:3px solid var(--border-strong);padding:6px 10px;margin:8px 0;font-size:13px}
+.diagnostic.error{border-color:var(--danger)}.diagnostic.warning{border-color:var(--warn-strong)}.diagnostic.info{border-color:var(--ok)}
+.diagnostic p{margin:4px 0}
+.diagnostic-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.diagnostic-values{display:flex;flex-wrap:wrap;gap:16px}
+.row.between{justify-content:space-between;align-items:center}
+.nav-highlight{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px;animation:nav-pulse 1.3s ease-out 2}
+@keyframes nav-pulse{0%{box-shadow:0 0 0 0 var(--accent-ring)}100%{box-shadow:0 0 0 10px transparent}}
+@media (prefers-reduced-motion:reduce){.nav-highlight{animation:none}}
+.search-button kbd,.palette-help kbd{font:11px/1.4 ui-monospace,monospace;border:1px solid var(--border-strong);border-radius:4px;padding:0 4px;margin-left:4px;color:var(--text-3)}
+.palette-backdrop{position:fixed;inset:0;z-index:1000;background:rgba(15,18,24,.45);display:flex;justify-content:center;align-items:flex-start;padding:10vh 16px 16px}
+.palette{width:min(620px,100%);background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-strong);overflow:hidden}
+.palette-input{width:100%;border:0;border-bottom:1px solid var(--border);border-radius:0;padding:14px 16px;font-size:15px;margin:0;background:var(--surface)}
+.palette-input:focus{outline:none;box-shadow:none}
+.palette-list{list-style:none;margin:0;padding:6px;max-height:52vh;overflow:auto}
+.palette-list li{padding:8px 10px;border-radius:6px;cursor:pointer;display:grid;gap:2px}
+.palette-list li.active{background:var(--accent-surface);outline:1px solid var(--accent-border)}
+.palette-title{font-size:14px;color:var(--text)}
+.palette-path{font-size:12px;color:var(--text-3)}.palette-path b{font-weight:600;color:var(--text-2)}
+.palette-note{font-size:11px;color:var(--warn)}
+.palette-empty{padding:16px;margin:0;color:var(--text-2);font-size:13px}
+.palette-help{border-top:1px solid var(--border);padding:7px 14px;font-size:11px;color:var(--text-3)}
+
+.tradeoff{margin:12px 0 4px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)}
+.tradeoff svg{width:100%;max-width:640px;height:auto;display:block}
+.tradeoff .axis{stroke:var(--border-strong);stroke-width:1}
+.tradeoff .axis-label,.tradeoff .tick{fill:var(--text-3);font-size:11px}
+.tradeoff .variant{fill:var(--text-2)}.tradeoff .variant.dominated{fill:var(--text-3);opacity:.55}
+.tradeoff .front{fill:none;stroke:var(--text-3);stroke-width:1.2}
+.tradeoff .iso{fill:none;stroke:var(--accent);stroke-width:1.2;stroke-dasharray:5 4}
+.tradeoff .pick circle{fill:none;stroke-width:2}.tradeoff .pick text{font-size:12px;font-weight:700}
+.tradeoff .pick-T circle{stroke:#2F6FDB}.tradeoff .pick-T text{fill:#2F6FDB}
+.tradeoff .pick-L circle{stroke:#2E9E5B}.tradeoff .pick-L text{fill:#2E9E5B}
+.tradeoff .pick-J circle{stroke:var(--accent)}.tradeoff .pick-J text{fill:var(--accent)}
+.tradeoff figcaption{margin-top:6px}
